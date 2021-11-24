@@ -1,4 +1,4 @@
-package vote.pebble.common;
+package vote.pebble.voting;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
@@ -6,6 +6,8 @@ import java.util.HashMap;
 
 import cafe.cryptography.curve25519.InvalidEncodingException;
 import cafe.cryptography.ed25519.Ed25519PublicKey;
+import vote.pebble.common.HashValue;
+import vote.pebble.common.ParseException;
 
 public class EligibilityList {
     private static final int MAGIC = 0x454c4c01;
