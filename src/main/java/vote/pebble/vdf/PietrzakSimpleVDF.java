@@ -22,34 +22,17 @@ public class PietrzakSimpleVDF implements VDF {
         this.time = time;
     }
 
-    @Override
-    public Solution create() {
-        var random = new SecureRandom();
-        var p = BigInteger.probablePrime(1024, random);
-        var q = BigInteger.probablePrime(1024, random);
-        var n = p.multiply(q);
+    private static BigInteger repeatSquare(BigInteger x, long t, BigInteger n, BigInteger p, BigInteger q) {
+        assert p.multiply(q).equals(n);
         var phi = p.subtract(BigInteger.ONE).multiply(q.subtract(BigInteger.ONE));
-        BigInteger x;
-        do {
-            x = new BigInteger(2048, random);
-        } while (x.compareTo(n) >= 0);
-        var input = Util.concat(Util.natToBytes(n, 256), Util.natToBytes(x, 256));
-        return solve(input, phi);
+        var e = BigInteger.TWO.modPow(BigInteger.valueOf(t), phi);
+        return x.modPow(e, n);
     }
 
-    @Override
-    public Solution solve(byte[] input) {
-        return solve(input, null);
-    }
-
-    private static BigInteger repeatSquare(BigInteger x, long t, BigInteger n, BigInteger phi) {
+    private static BigInteger repeatSquare(BigInteger x, long t, BigInteger n) {
         if (t == 0)
             return x;
         assert t > 0;
-        if (phi != null) {
-            var e = BigInteger.TWO.modPow(BigInteger.valueOf(t), phi);
-            return x.modPow(e, n);
-        }
         while (t >= DELTA) {
             x = x.modPow(TWO_POW_DELTA, n);
             t -= DELTA;
@@ -68,25 +51,43 @@ public class PietrzakSimpleVDF implements VDF {
         return Util.natFromBytes(hasher.digest(), 0, 16); // truncate to 128 bits
     }
 
-    private Solution solve(byte[] input, BigInteger phi) {
+    @Override
+    public Solution create() {
+        var random = new SecureRandom();
+        var p = BigInteger.probablePrime(1024, random);
+        var q = BigInteger.probablePrime(1024, random);
+        var n = p.multiply(q);
+        BigInteger x;
+        do {
+            x = new BigInteger(2048, random);
+        } while (x.compareTo(n) >= 0);
+        var y = repeatSquare(x, time, n, p, q);
+        var input = Util.concat(Util.natToBytes(n, 256), Util.natToBytes(x, 256));
+        var output = Util.natToBytes(y, 256);
+        var proof = Util.natToBytes(p, 128);
+        return new Solution(input, output, proof);
+    }
+
+    @Override
+    public Solution solve(byte[] input) {
         assert input.length % 2 == 0;
         int length = input.length / 2;
-        long t = time;
         MessageDigest hasher;
         try {
             hasher = MessageDigest.getInstance("SHA-512");
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+        long t = time;
         var n = Util.natFromBytes(input, 0, length);
         var x = Util.natFromBytes(input, length, length).remainder(n);
-        var y = repeatSquare(x, t, n, phi);
+        var y = repeatSquare(x, t, n);
         var output = Util.natToBytes(y, length);
         var proof = new ByteArrayOutputStream();
         while (t > DELTA) {
             assert t % 2 == 0;
             long halfT = t / 2;
-            var muRoot = repeatSquare(x, halfT - 1, n, phi);
+            var muRoot = repeatSquare(x, halfT - 1, n);
             try {
                 proof.write(Util.natToBytes(muRoot, length));
             } catch (IOException e) {
@@ -111,20 +112,32 @@ public class PietrzakSimpleVDF implements VDF {
     public boolean verify(Solution solution) {
         assert solution.input.length % 2 == 0;
         int length = solution.input.length / 2;
-        long t = time;
+        var n = Util.natFromBytes(solution.input, 0, length);
+        var x = Util.natFromBytes(solution.input, length, length).remainder(n);
+        var y = Util.natFromBytes(solution.output);
+        if (y.compareTo(n) >= 0)
+            return false; // y should be minimal
+        if (solution.proof.length * 2 == length) {
+            // proof consists of one of the two factors of n
+            var p = Util.natFromBytes(solution.proof);
+            var divRem = n.divideAndRemainder(p);
+            var q = divRem[0];
+            var rem = divRem[1];
+            if (!(BigInteger.ZERO.equals(rem)
+                    && p.isProbablePrime(40)
+                    && q.isProbablePrime(40)))
+                return false;
+            return repeatSquare(x, time, n, p, q).equals(y);
+        }
         MessageDigest hasher;
         try {
             hasher = MessageDigest.getInstance("SHA-512");
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        var n = Util.natFromBytes(solution.input, 0, length);
-        var x = Util.natFromBytes(solution.input, length, length).remainder(n);
-        var y = Util.natFromBytes(solution.output);
-        if (y.compareTo(n) >= 0)
-            return false; // y should be minimal
         var proof = ByteBuffer.wrap(solution.proof);
         var muRootBytes = new byte[length];
+        long t = time;
         while (t > DELTA) {
             assert t % 2 == 0;
             long halfT = t / 2;
@@ -146,6 +159,6 @@ public class PietrzakSimpleVDF implements VDF {
                 y = y.multiply(y).remainder(n);
             }
         }
-        return repeatSquare(x, t, n, null).equals(y);
+        return repeatSquare(x, t, n).equals(y);
     }
 }
