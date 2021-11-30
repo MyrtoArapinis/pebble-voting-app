@@ -1,12 +1,14 @@
 package vote.pebble.common;
 
+import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
-import java.security.MessageDigest;
 
 public final class HashValue {
     public static final int SIZE_BYTES = 32;
     public static final HashValue ZERO = new HashValue(new byte[32]);
+
+    private static final MessageDigest md = createMessageDigest();
 
     public final byte[] bytes;
 
@@ -15,14 +17,23 @@ public final class HashValue {
         this.bytes = bytes;
     }
 
-    public static HashValue sha256(byte[] input) {
-        MessageDigest hasher;
+    public static MessageDigest createMessageDigest() {
         try {
-            hasher = MessageDigest.getInstance("SHA-256");
+            return MessageDigest.getInstance("SHA-256");
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
-        return new HashValue(hasher.digest(input));
+    }
+
+    public static byte[] digest(byte[] message) {
+        synchronized (md) {
+            md.reset();
+            return md.digest(message);
+        }
+    }
+
+    public static HashValue hash(byte[] message) {
+        return new HashValue(digest(message));
     }
 
     @Override

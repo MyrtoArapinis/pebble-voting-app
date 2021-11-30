@@ -68,6 +68,6 @@ public class EligibilityList {
     }
 
     public HashValue hash() {
-        return HashValue.sha256(toBytes());
+        return HashValue.hash(toBytes());
     }
 }

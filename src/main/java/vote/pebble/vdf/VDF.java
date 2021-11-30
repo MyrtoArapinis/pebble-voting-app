@@ -1,7 +1,7 @@
 package vote.pebble.vdf;
 
 public interface VDF {
-    class Solution {
+    final class Solution {
         public final byte[] input, output, proof;
 
         public Solution(byte[] input, byte[] output, byte[] proof) {

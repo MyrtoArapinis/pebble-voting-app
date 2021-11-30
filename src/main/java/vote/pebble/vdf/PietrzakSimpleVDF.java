@@ -1,5 +1,6 @@
 package vote.pebble.vdf;
 
+import vote.pebble.common.HashValue;
 import vote.pebble.common.Util;
 
 import java.io.ByteArrayOutputStream;
@@ -8,7 +9,6 @@ import java.math.BigInteger;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 
 public class PietrzakSimpleVDF implements VDF {
@@ -42,13 +42,13 @@ public class PietrzakSimpleVDF implements VDF {
         return x.modPow(BigInteger.TWO.pow((int) t), n);
     }
 
-    private static BigInteger hash(MessageDigest hasher, BigInteger mu, BigInteger x, BigInteger y, long t, int length) {
-        hasher.reset();
-        hasher.update(Util.natToBytes(mu, length));
-        hasher.update(Util.natToBytes(x, length));
-        hasher.update(Util.natToBytes(y, length));
-        hasher.update(Util.longToBytes(t));
-        return Util.natFromBytes(hasher.digest(), 0, 16); // truncate to 128 bits
+    private static BigInteger hash(MessageDigest md, BigInteger mu, BigInteger x, BigInteger y, long t, int length) {
+        md.reset();
+        md.update(Util.natToBytes(mu, length));
+        md.update(Util.natToBytes(x, length));
+        md.update(Util.natToBytes(y, length));
+        md.update(Util.longToBytes(t));
+        return Util.natFromBytes(md.digest(), 0, 16); // truncate to 128 bits
     }
 
     @Override
@@ -72,12 +72,7 @@ public class PietrzakSimpleVDF implements VDF {
     public Solution solve(byte[] input) {
         assert input.length % 2 == 0;
         int length = input.length / 2;
-        MessageDigest hasher;
-        try {
-            hasher = MessageDigest.getInstance("SHA-512");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
+        var md = HashValue.createMessageDigest();
         long t = time;
         var n = Util.natFromBytes(input, 0, length);
         var x = Util.natFromBytes(input, length, length).remainder(n);
@@ -93,7 +88,7 @@ public class PietrzakSimpleVDF implements VDF {
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
-            var r = hash(hasher, muRoot, x, y, t, length);
+            var r = hash(md, muRoot, x, y, t, length);
             // we send the root of mu so that mu will certainly be a quadratic residue
             var mu = muRoot.multiply(muRoot).remainder(n);
             x = x.modPow(r, n).multiply(mu).remainder(n); // x' = x^r * mu
@@ -129,12 +124,7 @@ public class PietrzakSimpleVDF implements VDF {
                 return false;
             return repeatSquare(x, time, n, p, q).equals(y);
         }
-        MessageDigest hasher;
-        try {
-            hasher = MessageDigest.getInstance("SHA-512");
-        } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException(e);
-        }
+        var md = HashValue.createMessageDigest();
         var proof = ByteBuffer.wrap(solution.proof);
         var muRootBytes = new byte[length];
         long t = time;
@@ -147,7 +137,7 @@ public class PietrzakSimpleVDF implements VDF {
                 return false;
             }
             var muRoot = Util.natFromBytes(muRootBytes);
-            var r = hash(hasher, muRoot, x, y, t, length);
+            var r = hash(md, muRoot, x, y, t, length);
             // we send the root of mu so that mu will certainly be a quadratic residue
             var mu = muRoot.multiply(muRoot).remainder(n);
             x = x.modPow(r, n).multiply(mu).remainder(n); // x' = x^r * mu
