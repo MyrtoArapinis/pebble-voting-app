@@ -1,6 +1,6 @@
 package vote.pebble.common;
 
-public class ParseException extends Exception {
+public class ParseException extends PebbleException {
     public final String structure;
 
     public ParseException(String structure, String message) {
