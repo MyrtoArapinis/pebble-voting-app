@@ -1,9 +1,5 @@
-import vote.pebble.common.ByteString;
-import vote.pebble.common.HashValue;
-import vote.pebble.common.ParseException;
-import vote.pebble.voting.EligibilityList;
-import vote.pebble.voting.EncryptedBallot;
-import vote.pebble.voting.SignedBallot;
+import vote.pebble.common.*;
+import vote.pebble.voting.*;
 
 import cafe.cryptography.ed25519.Ed25519PrivateKey;
 import org.junit.jupiter.api.Test;
@@ -57,5 +53,14 @@ public class TestSerialization {
                 randomBytes(256));
         var ballot2 = SignedBallot.fromBytes(ballot1.toBytes());
         assertEquals(ballot1, ballot2);
+    }
+
+    @Test
+    void testDecryptionMessage() throws ParseException {
+        var msg1 = new DecryptionMessage(
+                new HashValue(randomBytes(32)),
+                randomBytes(256), randomBytes(3000));
+        var msg2 = DecryptionMessage.fromBytes(msg1.toBytes());
+        assertEquals(msg1, msg2);
     }
 }
