@@ -2,19 +2,25 @@ package vote.pebble.common;
 
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.Arrays;
 
-public final class HashValue {
+public final class HashValue extends ByteString {
     public static final int SIZE_BYTES = 32;
     public static final HashValue ZERO = new HashValue(new byte[32]);
 
     private static final MessageDigest md = createMessageDigest();
 
-    public final byte[] bytes;
-
     public HashValue(byte[] bytes) {
+        super(bytes);
         assert bytes.length == SIZE_BYTES;
-        this.bytes = bytes;
+    }
+
+    public HashValue(byte[] bytes, int off) {
+        super(bytes, off, SIZE_BYTES);
+    }
+
+    public HashValue(ByteString input) {
+        super(input.bytes);
+        assert bytes.length == SIZE_BYTES;
     }
 
     public static MessageDigest createMessageDigest() {
@@ -34,18 +40,5 @@ public final class HashValue {
 
     public static HashValue hash(byte[] message) {
         return new HashValue(digest(message));
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o instanceof HashValue)
-            return Arrays.equals(((HashValue) o).bytes, bytes);
-        return false;
-    }
-
-    @Override
-    public int hashCode() {
-        return Arrays.hashCode(bytes);
     }
 }
