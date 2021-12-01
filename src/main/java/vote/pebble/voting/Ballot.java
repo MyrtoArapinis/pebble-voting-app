@@ -12,9 +12,8 @@ public final class Ballot {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o instanceof Ballot)
-            return Arrays.equals(content, ((Ballot) o).content);
-        return false;
+        if (o == null || getClass() != o.getClass()) return false;
+        return Arrays.equals(content, ((Ballot) o).content);
     }
 
     @Override

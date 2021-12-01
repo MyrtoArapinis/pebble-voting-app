@@ -2,6 +2,7 @@ package vote.pebble.voting;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 
 import cafe.cryptography.curve25519.InvalidEncodingException;
@@ -33,6 +34,10 @@ public class EligibilityList {
         return idComs.containsKey(publicKey);
     }
 
+    public void sort() {
+        publicKeys.sort((a, b) -> Arrays.compare(a.toByteArray(), b.toByteArray()));
+    }
+
     public byte[] toBytes() {
         var buffer = ByteBuffer.allocate(4 + 64 * publicKeys.size());
         buffer.putInt(MAGIC);
@@ -50,18 +55,19 @@ public class EligibilityList {
         var buffer = ByteBuffer.wrap(bytes);
         if (buffer.getInt() != MAGIC)
             throw new ParseException(STRUCT, "Invalid magic");
-        var bytes32 = new byte[32];
         var result = new EligibilityList();
         for (int i = 0; i < entriesSize / 64; i++) {
             Ed25519PublicKey publicKey;
-            buffer.get(bytes32);
+            var publicKeyBytes = new byte[32];
+            buffer.get(publicKeyBytes);
             try {
-                publicKey = Ed25519PublicKey.fromByteArray(bytes32);
+                publicKey = Ed25519PublicKey.fromByteArray(publicKeyBytes);
             } catch (InvalidEncodingException e) {
                 throw new ParseException(STRUCT, e);
             }
-            buffer.get(bytes32);
-            var idCom = new HashValue(bytes32);
+            var idComBytes = new byte[32];
+            buffer.get(idComBytes);
+            var idCom = new HashValue(idComBytes);
             result.add(publicKey, idCom);
         }
         return result;

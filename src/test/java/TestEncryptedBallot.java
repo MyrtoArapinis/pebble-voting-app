@@ -1,10 +1,10 @@
-import org.junit.jupiter.api.RepeatedTest;
-import static org.junit.jupiter.api.Assertions.*;
-
 import vote.pebble.vdf.VDF;
 import vote.pebble.voting.Ballot;
 import vote.pebble.voting.BallotDecryptionFailedException;
 import vote.pebble.voting.EncryptedBallot;
+
+import org.junit.jupiter.api.RepeatedTest;
+import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.Random;
 
