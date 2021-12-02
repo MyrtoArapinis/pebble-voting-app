@@ -64,4 +64,13 @@ public class TestSerialization {
         var msg2 = DecryptionMessage.fromBytes(msg1.toBytes());
         assertEquals(msg1, msg2);
     }
+
+    @Test
+    void testCredentialMessage() throws ParseException {
+        var msg1 = CredentialMessage.sign(
+                Ed25519PrivateKey.generate(secureRandom),
+                randomBytes(32));
+        var msg2 = CredentialMessage.fromBytes(msg1.toBytes());
+        assertEquals(msg1, msg2);
+    }
 }
