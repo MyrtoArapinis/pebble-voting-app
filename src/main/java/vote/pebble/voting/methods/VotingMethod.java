@@ -1,9 +1,10 @@
-package vote.pebble.voting;
+package vote.pebble.voting.methods;
 
-import vote.pebble.voting.methods.ApprovalVoting;
-import vote.pebble.voting.methods.PluralityVoting;
+import vote.pebble.voting.structs.Ballot;
 
-public final class VotingMethodFactory {
+import java.util.ArrayList;
+
+public abstract class VotingMethod {
     private static final PluralityVoting pluralityVoting = new PluralityVoting();
     private static final ApprovalVoting approvalVoting = new ApprovalVoting();
 
@@ -14,4 +15,6 @@ public final class VotingMethodFactory {
             return approvalVoting;
         throw new NoSuchVotingMethodException(method);
     }
+
+    public abstract ArrayList<TallyCount> tally(int numChoices, Iterable<Ballot> ballots);
 }

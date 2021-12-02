@@ -1,12 +1,10 @@
 package vote.pebble.voting.methods;
 
-import vote.pebble.voting.Ballot;
-import vote.pebble.voting.TallyCount;
-import vote.pebble.voting.VotingMethod;
+import vote.pebble.voting.structs.Ballot;
 
 import java.util.ArrayList;
 
-public class ApprovalVoting implements VotingMethod {
+public class ApprovalVoting extends VotingMethod {
     @Override
     public ArrayList<TallyCount> tally(int numChoices, Iterable<Ballot> ballots) {
         assert numChoices >= 0 && numChoices <= 1024;

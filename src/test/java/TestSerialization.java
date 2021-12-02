@@ -1,8 +1,9 @@
 import vote.pebble.common.*;
-import vote.pebble.voting.*;
+import vote.pebble.voting.structs.*;
 
 import cafe.cryptography.ed25519.Ed25519PrivateKey;
 import org.junit.jupiter.api.Test;
+
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.security.SecureRandom;

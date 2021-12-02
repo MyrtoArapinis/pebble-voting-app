@@ -1,4 +1,4 @@
-package vote.pebble.voting;
+package vote.pebble.voting.structs;
 
 import vote.pebble.common.HashValue;
 import vote.pebble.common.ParseException;
@@ -7,7 +7,6 @@ import vote.pebble.vdf.VDF;
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
-import java.util.Objects;
 
 public final class DecryptionMessage {
     private static final String STRUCT = "DecryptionMessage";

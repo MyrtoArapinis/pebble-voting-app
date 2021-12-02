@@ -1,4 +1,4 @@
-package vote.pebble.voting;
+package vote.pebble.voting.structs;
 
 import vote.pebble.common.PebbleException;
 

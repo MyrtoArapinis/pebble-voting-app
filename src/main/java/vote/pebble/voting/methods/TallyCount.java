@@ -1,4 +1,4 @@
-package vote.pebble.voting;
+package vote.pebble.voting.methods;
 
 import java.util.Objects;
 
@@ -28,11 +28,9 @@ public final class TallyCount implements Comparable<TallyCount> {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o instanceof TallyCount) {
-            TallyCount other = (TallyCount) o;
-            return index == other.index && count == other.count;
-        }
-        return false;
+        if (o == null || getClass() != o.getClass()) return false;
+        TallyCount that = (TallyCount) o;
+        return index == that.index && count == that.count;
     }
 
     @Override
