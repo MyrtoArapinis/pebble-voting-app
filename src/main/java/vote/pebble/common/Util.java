@@ -3,6 +3,19 @@ package vote.pebble.common;
 import java.math.BigInteger;
 
 public final class Util {
+    public static byte[] concat(Iterable<byte[]> arrays) {
+        int length = 0;
+        for (var arr : arrays)
+            length += arr.length;
+        var result = new byte[length];
+        int i = 0;
+        for (var arr : arrays) {
+            System.arraycopy(arr, 0, result, i, arr.length);
+            i += arr.length;
+        }
+        return result;
+    }
+
     public static byte[] concat(byte[] ...arrays) {
         int length = 0;
         for (var arr : arrays)
