@@ -17,7 +17,7 @@ static GoSlice slice(void *data, size_t len) {
 	return s;
 }
 
-static void release(JNIEnv *env, jarray array, jbyte *elems) {
+static void releaseArray(JNIEnv *env, jarray array, jbyte *elems) {
 	(*env)->ReleaseByteArrayElements(env, array, elems, 0);
 }
 
@@ -29,31 +29,30 @@ static jbyte *arrayBytes(JNIEnv *env, jarray array) {
 	return (*env)->GetByteArrayElements(env, array, NULL);
 }
 
+static void getBytes32(JNIEnv *env, jarray array, jbyte *buf) {
+	(*env)->GetByteArrayRegion(env, array, 0, 32, buf);
+}
+
 JNIEXPORT jint JNICALL Java_vote_pebble_zkp_AnonCred1_jniGenerateCredential
 		(JNIEnv *env, jclass cls, jbyteArray array) {
-	if (arrayLength(env, array) != 3 * 32) {
+	jbyte bytes[3 * 32];
+	if (arrayLength(env, array) != sizeof(bytes))
 		return -2;
-	}
-	jbyte *bytes = arrayBytes(env, array);
-	int ret = FfiGenerateCredential(slice(bytes, 3 * 32));
-	(*env)->ReleaseByteArrayElements(env, array, bytes, 0);
+	int ret = FfiGenerateCredential(slice(bytes, sizeof(bytes)));
+	(*env)->SetByteArrayRegion(env, array, 0, sizeof(bytes), bytes);
 	return ret;
 }
 
 JNIEXPORT jint JNICALL Java_vote_pebble_zkp_AnonCred1_jniHashMerkleTree
 		(JNIEnv *env, jclass cls, jbyteArray arrRoot, jbyteArray arrCredentials, jint depth) {
 	jsize len = arrayLength(env, arrCredentials);
-	if (len < 0 || len % 32 != 0) {
+	if (len < 0 || len % 32 != 0 || arrayLength(env, arrRoot) != 32)
 		return -2;
-	}
-	if (arrayLength(env, arrRoot) != 32) {
-		return -2;
-	}
 	jbyte *credentials = arrayBytes(env, arrCredentials);
-	jbyte *root = arrayBytes(env, arrRoot);
+	jbyte root[32];
 	int ret = FfiHashMerkleTree(slice(root, 32), slice(credentials, len), depth);
-	release(env, arrCredentials, credentials);
-	release(env, arrRoot, root);
+	releaseArray(env, arrCredentials, credentials);
+	(*env)->SetByteArrayRegion(env, arrRoot, 0, 32, root);
 	return ret;
 }
 
@@ -63,17 +62,15 @@ JNIEXPORT jint JNICALL Java_vote_pebble_zkp_AnonCred1_jniProve
 		jint idx, jbyteArray arrCredentials) {
 	if (arrayLength(env, arrMessageHash) != 32
 			|| arrayLength(env, arrSerialNo) != 32
-			|| arrayLength(env, arrSecret) != 32) {
+			|| arrayLength(env, arrSecret) != 32)
 		return -2;
-	}
 	jsize credLen = arrayLength(env, arrCredentials);
-	if (credLen < 0 || credLen % 32 != 0) {
+	if (credLen < 0 || credLen % 32 != 0)
 		return -2;
-	}
 	jbyte messageHash[32], serialNo[32], secret[32];
-	(*env)->GetByteArrayRegion(env, arrMessageHash, 0, 32, messageHash);
-	(*env)->GetByteArrayRegion(env, arrSerialNo, 0, 32, serialNo);
-	(*env)->GetByteArrayRegion(env, arrSecret, 0, 32, secret);
+	getBytes32(env, arrMessageHash, messageHash);
+	getBytes32(env, arrSerialNo, serialNo);
+	getBytes32(env, arrSecret, secret);
 	jsize outLen = arrayLength(env, arrOut);
 	jsize paramsLen = arrayLength(env, arrParamsBytes);
 	jbyte *paramsBytes = arrayBytes(env, arrParamsBytes);
@@ -87,9 +84,9 @@ JNIEXPORT jint JNICALL Java_vote_pebble_zkp_AnonCred1_jniProve
 		slice(secret, 32),
 		idx,
 		slice(credentials, credLen));
-	release(env, arrParamsBytes, paramsBytes);
-	release(env, arrCredentials, credentials);
-	release(env, arrOut, out);
+	releaseArray(env, arrParamsBytes, paramsBytes);
+	releaseArray(env, arrCredentials, credentials);
+	releaseArray(env, arrOut, out);
 	return ret;
 }
 
@@ -99,13 +96,12 @@ JNIEXPORT jint JNICALL Java_vote_pebble_zkp_AnonCred1_jniVerify
 		jbyteArray arrSignature, jbyteArray arrMerkleRoot) {
 	if (arrayLength(env, arrMessageHash) != 32
 			|| arrayLength(env, arrSerialNo) != 32
-			|| arrayLength(env, arrMerkleRoot) != 32) {
+			|| arrayLength(env, arrMerkleRoot) != 32)
 		return -2;
-	}
 	jbyte messageHash[32], serialNo[32], merkleRoot[32];
-	(*env)->GetByteArrayRegion(env, arrMessageHash, 0, 32, messageHash);
-	(*env)->GetByteArrayRegion(env, arrSerialNo, 0, 32, serialNo);
-	(*env)->GetByteArrayRegion(env, arrMerkleRoot, 0, 32, merkleRoot);
+	getBytes32(env, arrMessageHash, messageHash);
+	getBytes32(env, arrSerialNo, serialNo);
+	getBytes32(env, arrMerkleRoot, merkleRoot);
 	jsize paramsLen = arrayLength(env, arrParamsBytes);
 	jsize sigLen = arrayLength(env, arrSignature);
 	jbyte *paramsBytes = arrayBytes(env, arrParamsBytes);
@@ -116,7 +112,7 @@ JNIEXPORT jint JNICALL Java_vote_pebble_zkp_AnonCred1_jniVerify
 		slice(serialNo, 32),
 		slice(signature, sigLen),
 		slice(merkleRoot, 32));
-	release(env, arrParamsBytes, paramsBytes);
-	release(env, arrSignature, signature);
+	releaseArray(env, arrParamsBytes, paramsBytes);
+	releaseArray(env, arrSignature, signature);
 	return ret;
 }
