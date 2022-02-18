@@ -5,16 +5,21 @@ import vote.pebble.voting.structs.Ballot;
 import java.util.ArrayList;
 
 public abstract class VotingMethod {
-    private static final PluralityVoting pluralityVoting = new PluralityVoting();
-    private static final ApprovalVoting approvalVoting = new ApprovalVoting();
+    public final int numChoices;
 
-    public static VotingMethod getInstance(String method) throws NoSuchVotingMethodException {
-        if (method.equals(pluralityVoting.toString()))
-            return pluralityVoting;
-        if (method.equals(approvalVoting.toString()))
-            return approvalVoting;
+    protected VotingMethod(int numChoices) {
+        this.numChoices = numChoices;
+    }
+
+    public static VotingMethod create(String method, int numChoices) throws NoSuchVotingMethodException, InvalidNumberOfChoicesException {
+        if (method.equals("Plurality"))
+            return new PluralityVoting(numChoices);
+        if (method.equals("Approval"))
+            return new ApprovalVoting(numChoices);
         throw new NoSuchVotingMethodException(method);
     }
 
-    public abstract ArrayList<TallyCount> tally(int numChoices, Iterable<Ballot> ballots);
+    public abstract Ballot vote(int[] choices);
+
+    public abstract ArrayList<TallyCount> tally(Iterable<Ballot> ballots);
 }

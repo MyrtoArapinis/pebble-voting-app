@@ -22,7 +22,7 @@ public final class DecryptionMessage {
 
     public DecryptionMessage(VDF.Solution vdfSol) {
         inputHash = HashValue.hash(vdfSol.input);
-        output = vdfSol.proof;
+        output = vdfSol.output;
         proof = vdfSol.proof;
     }
 

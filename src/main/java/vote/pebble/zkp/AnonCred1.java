@@ -145,8 +145,9 @@ public class AnonCred1 implements CredentialSystem {
     }
 
     @Override
-    public SecretCredential secretCredentialFromBytes(byte[] bytes) {
-        assert bytes.length == 96;
+    public SecretCredential secretCredentialFromBytes(byte[] bytes) throws CredentialException {
+        if (bytes.length != 96)
+            throw new CredentialException("Private credential must be 96 bytes");
         return new SecretCredentialImpl(
                 Arrays.copyOf(bytes,32),
                 Arrays.copyOfRange(bytes,32, 64),
@@ -154,8 +155,9 @@ public class AnonCred1 implements CredentialSystem {
     }
 
     @Override
-    public PublicCredential publicCredentialFromBytes(byte[] bytes) {
-        assert bytes.length == 32;
+    public PublicCredential publicCredentialFromBytes(byte[] bytes) throws CredentialException {
+        if (bytes.length != 32)
+            throw new CredentialException("Public credential must be 32 bytes");
         return new PublicCredentialImpl(bytes);
     }
 

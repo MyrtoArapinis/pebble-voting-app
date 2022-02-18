@@ -2,6 +2,9 @@ package vote.pebble.voting.structs;
 
 import vote.pebble.common.ByteString;
 import vote.pebble.common.ParseException;
+import vote.pebble.zkp.CredentialException;
+import vote.pebble.zkp.CredentialSet;
+import vote.pebble.zkp.SecretCredential;
 
 import java.nio.BufferUnderflowException;
 import java.nio.ByteBuffer;
@@ -19,6 +22,11 @@ public final class SignedBallot {
         this.encryptedBallot = encryptedBallot;
         this.serialNo = serialNo;
         this.signature = signature;
+    }
+
+    public static SignedBallot sign(EncryptedBallot encryptedBallot, CredentialSet credentialSet, SecretCredential secretCredential) throws CredentialException {
+        var signature = credentialSet.sign(secretCredential, encryptedBallot.toBytes());
+        return new SignedBallot(encryptedBallot, new ByteString(secretCredential.getSerialNumber()), signature);
     }
 
     public static SignedBallot fromBytes(byte[] bytes) throws ParseException {
@@ -54,6 +62,10 @@ public final class SignedBallot {
                 .put(signature)
                 .put(encBallotBytes)
                 .array();
+    }
+
+    public boolean verify(CredentialSet credentialSet) {
+        return credentialSet.verify(serialNo.bytes, signature, encryptedBallot.toBytes());
     }
 
     @Override

@@ -1,5 +1,7 @@
 package vote.pebble.voting.structs;
 
+import vote.pebble.vdf.VDF;
+
 import java.util.Arrays;
 
 public final class Ballot {
@@ -7,6 +9,10 @@ public final class Ballot {
 
     public Ballot(byte[] content) {
         this.content = content;
+    }
+
+    public EncryptedBallot encrypt(VDF.Solution vdfSol) {
+        return EncryptedBallot.encrypt(this, vdfSol);
     }
 
     @Override

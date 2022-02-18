@@ -3,6 +3,9 @@ package vote.pebble.voting.structs;
 import vote.pebble.common.HashValue;
 import vote.pebble.common.ParseException;
 import vote.pebble.vdf.VDF;
+import vote.pebble.zkp.CredentialException;
+import vote.pebble.zkp.CredentialSet;
+import vote.pebble.zkp.SecretCredential;
 
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
@@ -80,6 +83,10 @@ public final class EncryptedBallot {
         } catch (GeneralSecurityException e) {
             throw new BallotDecryptionFailedException(e);
         }
+    }
+
+    public SignedBallot sign(CredentialSet credentialSet, SecretCredential secretCredential) throws CredentialException {
+        return SignedBallot.sign(this, credentialSet, secretCredential);
     }
 
     @Override

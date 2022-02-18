@@ -3,6 +3,13 @@ package vote.pebble.common;
 import java.math.BigInteger;
 
 public final class Util {
+    public static <T> int indexOf(T[] a, Object o) {
+        int i = 0;
+        while (!a[i].equals(o))
+            i++;
+        return i;
+    }
+
     public static byte[] concat(Iterable<byte[]> arrays) {
         int length = 0;
         for (var arr : arrays)
