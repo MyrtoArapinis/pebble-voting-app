@@ -9,5 +9,5 @@ Implementation progress:
 - [x] Timelock encryption using [Pietrzak's VDF](https://eprint.iacr.org/2018/627.pdf)
 - [x] Signing and verification using non-anonymous keys used for the eligibility list
 - [x] Signing and verification using anonymous credentials
+- [x] Protocol logic
 - [ ] Interface to the Tezos blockchain
-- [ ] Protocol logic
