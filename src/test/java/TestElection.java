@@ -49,7 +49,7 @@ public class TestElection {
 
     ElectionParams generateElectionParams(EligibilityList eligibilityList) {
         var now = Instant.now();
-        return new ElectionParams(eligibilityList, now.plusSeconds(10), now.plusSeconds(20),
+        return new ElectionParams(eligibilityList, now.plusSeconds(20), now.plusSeconds(40),
                 10000, "Plurality", CANDIDATES);
     }
 
@@ -73,11 +73,13 @@ public class TestElection {
             secretsManager.secretCredential = secretCredentials.get(i);
             election.postCredential();
         }
-        Thread.sleep(11000);
+        while (Instant.now().isBefore(electionParams.voteStart))
+            Thread.sleep(100);
         int voterIdx = random.nextInt(VOTERS_COUNT);
         secretsManager.secretCredential = secretCredentials.get(voterIdx);
         election.vote(CANDIDATES[random.nextInt(CANDIDATES.length)]);
-        Thread.sleep(11000);
+        while (Instant.now().isBefore(electionParams.tallyStart))
+            Thread.sleep(100);
         assertThrows(BallotNotDecryptedException.class, election::tally);
         election.revealBallotDecryption();
         election.tally();
