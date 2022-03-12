@@ -18,7 +18,9 @@ public class PietrzakSimpleVDF implements VDF {
     public final long time;
 
     public PietrzakSimpleVDF(long time) {
-        assert time > 0 && time % 2 == 0;
+        assert time > 0;
+        if (time % 2 != 0)
+            time++;
         this.time = time;
     }
 

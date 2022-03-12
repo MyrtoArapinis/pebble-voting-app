@@ -5,6 +5,16 @@ plugins {
 group 'vote.pebble'
 version '1.0-SNAPSHOT'
 
+jar {
+    manifest {
+        attributes 'Main-Class': 'vote.pebble.cmd.App'
+    }
+    duplicatesStrategy DuplicatesStrategy.EXCLUDE
+    from {
+        configurations.compileClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+}
+
 repositories {
     mavenCentral()
 }
@@ -14,6 +24,7 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.7.0'
     implementation 'cafe.cryptography:curve25519-elisabeth:0.1.0'
     implementation 'cafe.cryptography:ed25519-elisabeth:0.1.0'
+    implementation 'com.google.code.gson:gson:2.9.0'
 }
 
 test {

@@ -20,8 +20,8 @@ public final class TallyCount implements Comparable<TallyCount> {
 
     @Override
     public int compareTo(TallyCount other) {
-        if (count < other.count) return -1;
-        if (count > other.count) return 1;
+        if (count < other.count) return 1;
+        if (count > other.count) return -1;
         return Integer.compare(index, other.index);
     }
 

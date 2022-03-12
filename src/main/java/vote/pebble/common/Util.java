@@ -1,8 +1,13 @@
 package vote.pebble.common;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+
 import java.math.BigInteger;
 
 public final class Util {
+    public static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+
     public static <T> int indexOf(T[] a, Object o) {
         int i = 0;
         while (!a[i].equals(o))
@@ -66,5 +71,13 @@ public final class Util {
             System.arraycopy(bytes, 0, result, length - bytes.length, bytes.length);
         }
         return result;
+    }
+
+    public static <T> T fromJson(String s, Class<T> c) {
+        return GSON.fromJson(s, c);
+    }
+
+    public static String toJson(Object o) {
+        return GSON.toJson(o);
     }
 }

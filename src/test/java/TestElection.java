@@ -70,16 +70,16 @@ public class TestElection {
         var election = new Election(electionParams, new MockBroadcastChannel(electionParams), secretsManager);
         for (int i = 0; i < VOTERS_COUNT; i++) {
             secretsManager.privateKey = privateKeys.get(i);
-            secretsManager.secretCredential = secretCredentials.get(i).toBytes();
+            secretsManager.secretCredential = secretCredentials.get(i);
             election.postCredential();
         }
         Thread.sleep(11000);
         int voterIdx = random.nextInt(VOTERS_COUNT);
-        secretsManager.secretCredential = secretCredentials.get(voterIdx).toBytes();
+        secretsManager.secretCredential = secretCredentials.get(voterIdx);
         election.vote(CANDIDATES[random.nextInt(CANDIDATES.length)]);
         Thread.sleep(11000);
         assertThrows(BallotNotDecryptedException.class, election::tally);
-        election.postBallotDecryption(secretsManager.solution);
+        election.revealBallotDecryption();
         election.tally();
     }
 }

@@ -16,4 +16,22 @@ public final class Hex {
     public static String encodeHexString(byte[] data) {
         return new String(encodeHex(data));
     }
+
+    private static int hexValue(char c) {
+        if (c >= '0' && c <= '9')
+            return c - '0';
+        if (c >= 'A' && c <= 'F')
+            return c - 'A' + 10;
+        if (c >= 'a' && c <= 'f')
+            return c - 'a' + 10;
+        throw new IllegalArgumentException("Not a hexadecimal digit");
+    }
+
+    public static byte[] decodeHexString(String s) {
+        assert s.length() % 2 == 0;
+        var res = new byte[s.length() / 2];
+        for (int i = 0; i < res.length; i++)
+            res[i] = (byte) (hexValue(s.charAt(i * 2)) * 16 + hexValue(s.charAt(i * 2 + 1)));
+        return res;
+    }
 }

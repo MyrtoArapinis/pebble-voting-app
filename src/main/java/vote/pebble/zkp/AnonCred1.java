@@ -3,7 +3,9 @@ package vote.pebble.zkp;
 import vote.pebble.common.HashValue;
 import vote.pebble.common.Util;
 
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -13,7 +15,15 @@ public class AnonCred1 implements CredentialSystem {
     private static final int ZKP_DEPTH;
 
     static {
-        System.load(AnonCred1.class.getClassLoader().getResource("libanoncred1-jni.so").getPath());
+        try (var istream = AnonCred1.class.getClassLoader().getResourceAsStream("libanoncred1-jni.so")) {
+            var tmp = Files.createTempFile("", ".so").toFile();
+            try (var ostream = new FileOutputStream(tmp))  {
+                ostream.write(istream.readAllBytes());
+            }
+            System.load(tmp.getPath());
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
         try (var stream = AnonCred1.class.getClassLoader().getResourceAsStream("anoncred1-params.bin")) {
             ZKP_PARAMS_BYTES = stream.readAllBytes();
         } catch (IOException e) {

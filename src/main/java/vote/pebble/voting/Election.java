@@ -47,7 +47,7 @@ public final class Election {
     public void postCredential() throws CredentialException {
         assert params.phase() == ElectionPhase.CRED_GEN;
         var privateKey = secretsManager.getPrivateKey();
-        var credential = CRED_SYS.secretCredentialFromBytes(secretsManager.getSecretCredential())
+        var credential = secretsManager.getSecretCredential(CRED_SYS)
                 .getPublicCredential().toBytes();
         var msg = CredentialMessage.sign(privateKey, credential);
         channel.postCredential(msg);
@@ -78,14 +78,23 @@ public final class Election {
         var set = getCredentialSet();
         var solution = vdf.create();
         secretsManager.setVDFSolution(solution);
-        var secret = CRED_SYS.secretCredentialFromBytes(secretsManager.getSecretCredential());
+        var secret = secretsManager.getSecretCredential(CRED_SYS);
         var ballot = votingMethod.vote(indexes).encrypt(solution).sign(set, secret);
+        secretsManager.setBallot(ballot);
         channel.postSignedBallot(ballot);
+    }
+
+    public void revealBallotDecryption() {
+        postBallotDecryption(secretsManager.getVDFSolution());
     }
 
     public void postBallotDecryption(VDF.Solution vdfSolution) {
         assert params.phase() == ElectionPhase.TALLY;
         channel.postBallotDecryption(new DecryptionMessage(vdfSolution));
+    }
+
+    public void postBallotDecryption(EncryptedBallot encryptedBallot) {
+        postBallotDecryption(vdf.solve(encryptedBallot.vdfInput));
     }
 
     private Ballot decryptBallot(EncryptedBallot encryptedBallot) throws BallotNotDecryptedException {
@@ -100,7 +109,7 @@ public final class Election {
                 }
             }
         }
-        throw new BallotNotDecryptedException();
+        throw new BallotNotDecryptedException(encryptedBallot);
     }
 
     public ArrayList<TallyCount> tally() throws CredentialException, BallotNotDecryptedException {

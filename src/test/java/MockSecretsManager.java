@@ -2,10 +2,13 @@ import cafe.cryptography.ed25519.Ed25519PrivateKey;
 import vote.pebble.vdf.VDF;
 import vote.pebble.voting.SecretsManager;
 import vote.pebble.voting.structs.SignedBallot;
+import vote.pebble.zkp.CredentialException;
+import vote.pebble.zkp.CredentialSystem;
+import vote.pebble.zkp.SecretCredential;
 
 public class MockSecretsManager implements SecretsManager {
     Ed25519PrivateKey privateKey;
-    byte[] secretCredential;
+    SecretCredential secretCredential;
     SignedBallot ballot;
     VDF.Solution solution;
 
@@ -15,7 +18,7 @@ public class MockSecretsManager implements SecretsManager {
     }
 
     @Override
-    public byte[] getSecretCredential() {
+    public SecretCredential getSecretCredential(CredentialSystem system) throws CredentialException {
         return secretCredential;
     }
 
