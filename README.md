@@ -7,6 +7,7 @@
 ---
 
 ## What is Pebble?
+
 Pebble is an open source decentralized, secure, and transparent online voting solution that combines time lock encryption, zero-knowledge proofs, and blockchain technology to enable self-tallying elections.
 
 By empowering every user to act as their own election authority, Pebble eliminates fees and vulnerabilities induced by intermediaries and trusted-third parties.
@@ -17,7 +18,7 @@ Pebble is currently released as an open early-alpha.
 
 This is a work in progress project. Feel free to review, contribute, and get in touch.
 
-For more details, check out the [Docs section](doc/) and the [Pebble website](https://www.pebble.vote/).
+For more details, check out the [documentation section](doc/) and the [Pebble website](https://www.pebble.vote/).
 
 ## Implementation progress
 
@@ -26,6 +27,7 @@ For more details, check out the [Docs section](doc/) and the [Pebble website](ht
 - [x] Signing and verification using non-anonymous keys used for the eligibility list
 - [x] Signing and verification using anonymous credentials
 - [x] Protocol logic
+- [x] Mock server
 - [ ] Interface to the Tezos blockchain
 
 ## Background
