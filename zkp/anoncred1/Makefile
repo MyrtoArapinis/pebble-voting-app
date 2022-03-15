@@ -1,6 +1,6 @@
 LIB_SOURCES := ffi.go main.go zkp.go
 C_SOURCES := $(wildcard jni/*.c)
-INCLUDES := -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux
+INCLUDES := -I${JAVA_HOME}/include -I${JAVA_HOME}/include/linux -I${JAVA_HOME}/include/darwin
 
 all: anoncred1 libanoncred1-jni.so
 
