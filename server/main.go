@@ -3,7 +3,9 @@ package main
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os"
 	"time"
 )
 
@@ -178,6 +180,11 @@ func (handler *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func main() {
+	port := "8090"
+	if len(os.Args) == 2 {
+		port = os.Args[1]
+	}
 	handler := &Handler{NewMockServer()}
-	http.ListenAndServe(":8090", handler)
+	fmt.Printf("Server listening on port %s\n", port)
+	http.ListenAndServe(":"+port, handler)
 }
