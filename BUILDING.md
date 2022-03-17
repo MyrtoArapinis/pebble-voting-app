@@ -15,7 +15,13 @@ Java dependencies are managed by Gradle.
 
 ## Instructions
 
-Functions within the Anonymous Credentials library are called from the Java app using JNI. To compile the library ensure that the `$JAVA_HOME` environment variable is set, e.g. by running `echo $JAVA_HOME`. An example setting would be `/usr/lib/jvm/java-11-openjdk-amd64`.  If it is not set and you have identified your Java installation directory, you can set it with e.g. `export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64`. On macOS with the JDK installed with Homebrew, the command would be `export JAVA_HOME=/opt/homebrew/opt/java`.
+Functions within the Anonymous Credentials library are called from the Java app using JNI. To compile the library ensure that the `$JAVA_HOME` environment variable is set, e.g. by running `echo $JAVA_HOME`.
+
+An example setting would be `/usr/lib/jvm/java-11-openjdk-amd64`.  If it is not set and you have identified your JDK installation directory, you can set it with e.g.:
+
+    export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+
+On macOS you can use `/usr/libexec/java_home` to find the location of the JDK.
 
 The command line app and its library can be built using `make`. The resulting `jar` will be in the `build/libs` directory.
 
