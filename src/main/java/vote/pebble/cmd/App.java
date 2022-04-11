@@ -21,6 +21,7 @@ import java.io.FileNotFoundException;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Scanner;
@@ -59,6 +60,7 @@ public final class App {
                 try {
                     setElection(args[1].equals("info"));
                 } catch (PebbleException e) {
+                    System.err.println("Couldn't load current election.");
                     e.printStackTrace();
                     System.exit(3);
                 }
@@ -68,6 +70,7 @@ public final class App {
                     try {
                         election.postCredential();
                     } catch (CredentialException e) {
+                        System.err.println("Joining election failed due to error while posting per election credential.");
                         e.printStackTrace();
                         System.exit(3);
                     }
@@ -134,15 +137,28 @@ public final class App {
         }
     }
 
+    private static Instant inputTime(Scanner scanner, String prompt) {
+        String line;
+        for (;;) {
+            System.out.print(prompt);
+            try {
+                line = scanner.nextLine();
+                return Instant.parse(line);
+            } catch (DateTimeParseException e) {
+                System.err.println("Couldn't parse date and time. Use the ISO 8601 extended date/time format.\n"
+                    + "Current date and time would be formatted as: "
+                    + Instant.now());
+            }
+        }
+    }
+
     private void createElection() {
         ElectionParams electionParams;
         String input;
         try (var scanner = new Scanner(System.in)) {
             scanner.useDelimiter("\n");
-            System.out.print("Vote start: ");
-            var voteStart = Instant.parse(scanner.nextLine());
-            System.out.print("Tally start: ");
-            var tallyStart = Instant.parse(scanner.nextLine());
+            var voteStart = inputTime(scanner, "Vote start: ");
+            var tallyStart = inputTime(scanner, "Tally start: ");
             System.out.print("VDF difficulty: ");
             var diff = scanner.nextLong();
             scanner.nextLine();
@@ -220,6 +236,7 @@ public final class App {
         try {
             election.vote(electionParams.choices[choice]);
         } catch (CredentialException e) {
+            System.err.println("Failed to submit ballot.");
             e.printStackTrace();
             System.exit(3);
         }
