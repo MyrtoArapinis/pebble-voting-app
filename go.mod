@@ -1,4 +1,4 @@
-module github.com/giry-dev/pebble-voting-app/zkp/anoncred1
+module github.com/giry-dev/pebble-voting-app
 
 go 1.16
 
