@@ -9,9 +9,9 @@ import (
 	"errors"
 	"io"
 
-	"github.com/giry-dev/pebble-voting-app/anoncred"
-	"github.com/giry-dev/pebble-voting-app/util"
-	"github.com/giry-dev/pebble-voting-app/vdf"
+	"github.com/giry-dev/pebble-voting-app/pebble-core/anoncred"
+	"github.com/giry-dev/pebble-voting-app/pebble-core/util"
+	"github.com/giry-dev/pebble-voting-app/pebble-core/vdf"
 )
 
 type Ballot []byte

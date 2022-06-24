@@ -3,7 +3,7 @@ package voting
 import (
 	"time"
 
-	"github.com/giry-dev/pebble-voting-app/voting/structs"
+	"github.com/giry-dev/pebble-voting-app/pebble-core/voting/structs"
 )
 
 type ElectionPhase uint8
@@ -14,8 +14,11 @@ const (
 	Tally
 )
 
+type ElectionID = [32]byte
+
 type ElectionParams struct {
 	Version               uint32
+	Id                    ElectionID
 	EligibilityList       *structs.EligibilityList
 	CastStart, TallyStart time.Time
 	VdfDifficulty         uint64

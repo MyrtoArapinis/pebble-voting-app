@@ -14,7 +14,7 @@ import (
 	"github.com/consensys/gnark/backend/groth16"
 	"github.com/consensys/gnark/frontend"
 	"github.com/consensys/gnark/std/hash/mimc"
-	"github.com/giry-dev/pebble-voting-app/util"
+	"github.com/giry-dev/pebble-voting-app/pebble-core/util"
 )
 
 const curveID = ecc.BLS12_381

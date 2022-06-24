@@ -3,7 +3,7 @@ package util
 import (
 	"io"
 
-	"github.com/giry-dev/pebble-voting-app/common"
+	"github.com/giry-dev/pebble-voting-app/pebble-core/common"
 )
 
 type BufferReader struct {
@@ -34,6 +34,14 @@ func (r *BufferReader) ReadBytes(n int) (p []byte, err error) {
 	p = r.buf[:n]
 	r.buf = r.buf[n:]
 	return
+}
+
+func (r *BufferReader) Read32() (p [32]byte, err error) {
+	if copy(p[:], r.buf) != 32 {
+		return p, io.ErrShortBuffer
+	}
+	r.buf = r.buf[32:]
+	return p, nil
 }
 
 func (r *BufferReader) ReadRemaining() (p []byte) {
@@ -121,6 +129,10 @@ func (w *BufferWriter) Len() int {
 func (w *BufferWriter) Write(p []byte) (int, error) {
 	w.Buffer = append(w.Buffer, p...)
 	return len(p), nil
+}
+
+func (w *BufferWriter) Write32(p [32]byte) {
+	w.Buffer = append(w.Buffer, p[:]...)
 }
 
 func (w *BufferWriter) WriteAll(ps ...[]byte) {
