@@ -17,6 +17,12 @@ type EligibilityList struct {
 	idCommitments   map[util.HashValue]util.HashValue
 }
 
+func NewEligibilityList() *EligibilityList {
+	ell := new(EligibilityList)
+	ell.idCommitments = make(map[util.HashValue]util.HashValue)
+	return ell
+}
+
 func (list *EligibilityList) Add(pkh, idCom util.HashValue) bool {
 	if _, exists := list.idCommitments[pkh]; exists {
 		return false

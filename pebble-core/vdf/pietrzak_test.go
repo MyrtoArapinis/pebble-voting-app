@@ -6,7 +6,7 @@ import (
 )
 
 func TestSolvePietrzak(t *testing.T) {
-	var vdf VDF = &PietrzakVdf{1 << 63, 10000}
+	var vdf VDF = &PietrzakVdf{1 << 63, 10001}
 	puz, err := vdf.Create(uint64(1 + rand.Int31n(10)))
 	if err != nil {
 		t.Error(err.Error())

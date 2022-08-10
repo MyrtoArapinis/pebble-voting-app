@@ -1,6 +1,7 @@
 package pubkey
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
@@ -12,7 +13,6 @@ import (
 type PublicKey []byte
 
 type PrivateKey struct {
-	t KeyType
 	p PublicKey
 	s []byte
 }
@@ -20,7 +20,8 @@ type PrivateKey struct {
 type KeyType byte
 
 const (
-	KeyTypeEd25519 KeyType = iota
+	KeyTypeUnknown KeyType = iota
+	KeyTypeEd25519
 	KeyTypeTezos
 )
 
@@ -32,8 +33,24 @@ var (
 	ErrInvalidSignature = errors.New("pebble: invalid signature")
 )
 
+var noHashSignerOpts crypto.SignerOpts = crypto.Hash(0)
+
+func newPublicKey(t KeyType, k []byte) PublicKey {
+	p := make(PublicKey, len(k)+1)
+	p[0] = byte(t)
+	copy(p[1:], k)
+	return p
+}
+
+func (k PublicKey) Type() KeyType {
+	if len(k) < 1 {
+		return KeyTypeUnknown
+	}
+	return KeyType(k[0])
+}
+
 func (k PrivateKey) Type() KeyType {
-	return k.t
+	return k.p.Type()
 }
 
 func (k PrivateKey) Public() PublicKey {
@@ -51,23 +68,23 @@ func GenerateKey(keyType KeyType) (k PrivateKey, err error) {
 		if err != nil {
 			return k, err
 		}
-		return PrivateKey{keyType, PublicKey(pub), priv.Seed()}, nil
+		return PrivateKey{newPublicKey(keyType, pub), priv.Seed()}, nil
 	case KeyTypeTezos:
 		priv, err := tezos.GenerateKey(tezos.KeyTypeEd25519)
 		if err != nil {
 			return k, err
 		}
 		pub := priv.Public()
-		return PrivateKey{keyType, PublicKey(pub.Bytes()), []byte(priv.String())}, nil
+		return PrivateKey{newPublicKey(keyType, pub.Bytes()), []byte(priv.String())}, nil
 	default:
 		return k, ErrUnknownKeyType
 	}
 }
 
 func (k PrivateKey) Sign(msg []byte) ([]byte, error) {
-	switch k.t {
+	switch k.Type() {
 	case KeyTypeEd25519:
-		return ed25519.NewKeyFromSeed(k.s).Sign(rand.Reader, msg, nil)
+		return ed25519.NewKeyFromSeed(k.s).Sign(rand.Reader, msg, noHashSignerOpts)
 	case KeyTypeTezos:
 		key, err := tezos.ParsePrivateKey(string(k.s))
 		if err != nil {

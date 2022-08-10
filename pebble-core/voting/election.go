@@ -6,7 +6,6 @@ import (
 	"github.com/giry-dev/pebble-voting-app/pebble-core/anoncred"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/util"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/vdf"
-	"github.com/giry-dev/pebble-voting-app/pebble-core/voting/broadcast"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/voting/methods"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/voting/secrets"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/voting/structs"
@@ -20,7 +19,7 @@ var (
 
 type Election struct {
 	credSys anoncred.CredentialSystem
-	channel broadcast.BroadcastChannel
+	channel BroadcastChannel
 	secrets secrets.SecretsManager
 	vdf     vdf.VDF
 	method  methods.VotingMethod

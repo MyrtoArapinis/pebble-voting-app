@@ -6,8 +6,16 @@ import (
 	"math/big"
 )
 
-const delta = 4096
-const modulusBits = 1024
+const (
+	delta       = 4096
+	modulusBits = 1024
+)
+
+var (
+	one         = big.NewInt(1)
+	two         = big.NewInt(2)
+	twoExpDelta = new(big.Int).Exp(two, big.NewInt(delta), nil)
+)
 
 type PietrzakVdf struct {
 	MaxDifficulty        uint64
@@ -58,18 +66,16 @@ type repeatedSquarer struct {
 }
 
 func (s *repeatedSquarer) Eval(x *big.Int, t uint64) (r *big.Int) {
-	e := new(big.Int)
-	two := big.NewInt(2)
-	e.Exp(two, big.NewInt(delta), nil)
 	r = new(big.Int)
 	r.Set(x)
 	for t >= delta {
-		r.Exp(r, e, s.n)
+		r.Exp(r, twoExpDelta, s.n)
 		t -= delta
 	}
 	if t != 0 {
+		var e big.Int
 		e.Exp(two, big.NewInt(int64(t)), nil)
-		r.Exp(r, e, s.n)
+		r.Exp(r, &e, s.n)
 	}
 	return r
 }
@@ -84,7 +90,6 @@ func newTrapdoorSquarer(p, q *big.Int) (s *trapdoorSquarer) {
 	s.phi = new(big.Int)
 	s.n.Mul(p, q)
 	var p1, q1 big.Int
-	one := big.NewInt(1)
 	p1.Sub(p, one)
 	q1.Sub(q, one)
 	s.phi.Mul(&p1, &q1)
@@ -94,16 +99,13 @@ func newTrapdoorSquarer(p, q *big.Int) (s *trapdoorSquarer) {
 func (s *trapdoorSquarer) Eval(x *big.Int, t uint64) (r *big.Int) {
 	var e big.Int
 	r = new(big.Int)
-	e.Exp(big.NewInt(2), big.NewInt(int64(t)), s.phi)
+	e.Exp(two, big.NewInt(int64(t)), s.phi)
 	r.Exp(x, &e, s.n)
 	return r
 }
 
 func (vdf *PietrzakVdf) Create(seconds uint64) (sol VdfSolution, err error) {
 	t := vdf.DifficultyConversion * seconds
-	if t%2 != 0 {
-		t++
-	}
 	if t > vdf.MaxDifficulty {
 		t = vdf.MaxDifficulty
 	}
@@ -121,15 +123,14 @@ func (vdf *PietrzakVdf) Create(seconds uint64) (sol VdfSolution, err error) {
 	if err != nil {
 		return sol, err
 	}
-	sqr := newTrapdoorSquarer(p, q)
-	y := sqr.Eval(x, t)
-	var w intSerializer
-	w.WriteUint64(t)
-	w.Write(n)
-	w.Write(x)
-	sol.Input = w.Buffer
+	y := newTrapdoorSquarer(p, q).Eval(x, t)
+	var ser intSerializer
+	ser.WriteUint64(t)
+	ser.Write(n)
+	ser.Write(x)
+	sol.Input = ser.Buffer
 	sol.Output = y.FillBytes(make([]byte, modulusBits/8))
-	sol.Proof = sqr.phi.FillBytes(make([]byte, modulusBits/8))
+	sol.Proof = p.FillBytes(make([]byte, modulusBits/16))
 	return
 }
 
@@ -152,10 +153,8 @@ func (tr *transcript) Add(x *big.Int) {
 	tr.hash = sha256.Sum256(b)
 }
 
-func (tr *transcript) Challenge() (r *big.Int) {
-	r = new(big.Int)
-	r.SetBytes(tr.hash[:16])
-	return
+func (tr *transcript) Challenge() *big.Int {
+	return new(big.Int).SetBytes(tr.hash[:16])
 }
 
 // computes a^b * c % n
@@ -194,8 +193,13 @@ func (vdf *PietrzakVdf) solve(input []byte, sqr squarer) (sol VdfSolution, err e
 	tr.Add(y)
 	ser.Buffer = nil
 	for t > delta {
-		halfT := t / 2
-		muRoot := sqr.Eval(x, halfT-1)
+		if t%2 != 0 {
+			t++
+			y.Mul(y, y)
+			y.Rem(y, n)
+		}
+		t /= 2
+		muRoot := sqr.Eval(x, t-1)
 		ser.Write(muRoot)
 		tr.Add(muRoot)
 		r := tr.Challenge()
@@ -204,23 +208,16 @@ func (vdf *PietrzakVdf) solve(input []byte, sqr squarer) (sol VdfSolution, err e
 		mu.Rem(mu, n)
 		x = expAndMul(x, r, mu, n)
 		y = expAndMul(mu, r, y, n)
-		if halfT%2 == 0 {
-			t = halfT
-		} else {
-			t = halfT + 1
-			y.Mul(y, y)
-			y.Rem(y, n)
-		}
 	}
 	sol.Proof = ser.Buffer
 	return
 }
 
 func (vdf *PietrzakVdf) Verify(sol VdfSolution) error {
-	r := intSerializer{sol.Input}
-	t := r.ReadUint64()
-	n := r.Read()
-	x := r.Read()
+	ser := intSerializer{sol.Input}
+	t := ser.ReadUint64()
+	n := ser.Read()
+	x := ser.Read()
 	if t > vdf.MaxDifficulty || n == nil || x == nil {
 		return newError("failed to parse vdf input")
 	}
@@ -233,18 +230,16 @@ func (vdf *PietrzakVdf) Verify(sol VdfSolution) error {
 	if y.Cmp(n) >= 0 {
 		return newError("output greater than modulous")
 	}
-	if len(sol.Proof) == modulusBits/8 {
-		phi := new(big.Int)
-		phi.SetBytes(sol.Proof)
-		if phi.IsUint64() && phi.Uint64() < 2 {
-			return newError("invalid order given")
+	if len(sol.Proof) == modulusBits/16 {
+		var p, q, m big.Int
+		p.SetBytes(sol.Proof)
+		q.DivMod(n, &p, &m)
+		if !(m.IsUint64() && m.Uint64() == 0 &&
+			p.Cmp(two) > 0 && q.Cmp(two) > 0 && p.Cmp(&q) != 0 &&
+			p.ProbablyPrime(64) && q.ProbablyPrime(64)) {
+			return newError("invalid factor")
 		}
-		var one big.Int
-		one.Exp(x, phi, n)
-		if !(one.IsUint64() && one.Uint64() == 1) {
-			return newError("invalid order given")
-		}
-		if (&trapdoorSquarer{n, phi}).Eval(x, t).Cmp(y) != 0 {
+		if newTrapdoorSquarer(&p, &q).Eval(x, t).Cmp(y) != 0 {
 			return newError("trapdoor evaluation does not match output")
 		}
 		return nil
@@ -254,11 +249,16 @@ func (vdf *PietrzakVdf) Verify(sol VdfSolution) error {
 	tr.Add(n)
 	tr.Add(x)
 	tr.Add(y)
-	r.Buffer = sol.Proof
+	ser.Buffer = sol.Proof
 	mu := new(big.Int)
-	for i := 0; t > delta; i++ {
-		halfT := t / 2
-		muRoot := r.Read()
+	for t > delta {
+		if t%2 != 0 {
+			t++
+			y.Mul(y, y)
+			y.Rem(y, n)
+		}
+		t /= 2
+		muRoot := ser.Read()
 		if muRoot == nil {
 			return newError("failed to parse proof")
 		}
@@ -268,13 +268,6 @@ func (vdf *PietrzakVdf) Verify(sol VdfSolution) error {
 		mu.Rem(mu, n)
 		x = expAndMul(x, r, mu, n)
 		y = expAndMul(mu, r, y, n)
-		if halfT%2 == 0 {
-			t = halfT
-		} else {
-			t = halfT + 1
-			y.Mul(y, y)
-			y.Rem(y, n)
-		}
 	}
 	if (&repeatedSquarer{n}).Eval(x, t).Cmp(y) != 0 {
 		return newError("final evaluation check failed")

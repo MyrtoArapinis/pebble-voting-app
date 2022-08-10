@@ -1,4 +1,4 @@
-package broadcast
+package voting
 
 import "github.com/giry-dev/pebble-voting-app/pebble-core/voting/structs"
 

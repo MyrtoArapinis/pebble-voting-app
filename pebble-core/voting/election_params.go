@@ -12,18 +12,19 @@ const (
 	CredGen ElectionPhase = iota
 	Cast
 	Tally
+	End
 )
 
 type ElectionID = [32]byte
 
 type ElectionParams struct {
-	Version               uint32
-	Id                    ElectionID
-	EligibilityList       *structs.EligibilityList
-	CastStart, TallyStart time.Time
-	VdfDifficulty         uint64
-	VotingMethod          string
-	Choices               []string
+	Version                         uint32
+	Id                              ElectionID
+	EligibilityList                 *structs.EligibilityList
+	CastStart, TallyStart, TallyEnd time.Time
+	VdfDifficulty                   uint64
+	VotingMethod                    string
+	Choices                         []string
 }
 
 func (p *ElectionParams) Phase() ElectionPhase {
@@ -32,7 +33,9 @@ func (p *ElectionParams) Phase() ElectionPhase {
 		return CredGen
 	} else if now.Before(p.TallyStart) {
 		return Cast
-	} else {
+	} else if now.Before(p.TallyEnd) {
 		return Tally
+	} else {
+		return End
 	}
 }

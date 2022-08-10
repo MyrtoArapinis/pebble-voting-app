@@ -6,7 +6,7 @@ type ParsingError struct {
 }
 
 func (e *ParsingError) Error() string {
-	return "error parsing " + e.Struct + ": " + e.Msg
+	return "pebble: error parsing " + e.Struct + ": " + e.Msg
 }
 
 func NewParsingError(structName, msg string) error {

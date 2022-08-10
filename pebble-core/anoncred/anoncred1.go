@@ -353,6 +353,9 @@ func (set *anonCred1Set) Swap(i, j int) {
 func (params *AnonCred1) MakeCredentialSet(credentials []PublicCredential) (CredentialSet, error) {
 	set := new(anonCred1Set)
 	set.params = params
+	if len(credentials) == 0 {
+		return set, nil
+	}
 	for _, item := range credentials {
 		switch cred := item.(type) {
 		case *anonCred1PubCred:
