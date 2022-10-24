@@ -24,11 +24,12 @@ For more details, check out the [documentation section](doc/) and the [Pebble we
 
 - [x] Serialization of data structures used by the protocol, including the eligibility list, anonymous credential announcement, encrypted and signed ballots, and timelock encryption solutions
 - [x] Timelock encryption using [Pietrzak's VDF](https://eprint.iacr.org/2018/627.pdf)
-- [x] Signing and verification using non-anonymous keys used for the eligibility list
+- [x] Signing and verification using non-anonymous keys used for the eligibility list (Ed25519, Tezos)
 - [x] Signing and verification using anonymous credentials
 - [x] Protocol logic
 - [x] Mock server
-- [ ] Interface to the Tezos blockchain
+- [x] Election setup service
+- [ ] Interface to the Tezos blockchain (In Progress)
 
 ## Background
 
