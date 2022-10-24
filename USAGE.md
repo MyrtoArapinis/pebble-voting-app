@@ -1,3 +1,7 @@
+**These instructions need to be updated for the new app written in Go**
+
+---
+
 # Using Pebble
 
 *alpha version*

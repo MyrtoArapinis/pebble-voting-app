@@ -1,3 +1,7 @@
+**These instructions need to be updated for the new app written in Go**
+
+---
+
 # Building Pebble
 
 The Pebble software consists of three components:
