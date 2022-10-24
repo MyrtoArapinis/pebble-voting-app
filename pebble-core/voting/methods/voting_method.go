@@ -1,10 +1,24 @@
 package methods
 
 import (
+	"errors"
 	"sort"
 
 	"github.com/giry-dev/pebble-voting-app/pebble-core/voting/structs"
 )
+
+var ErrUnknownVotingMethod = errors.New("pebble: unknown voting method")
+
+func Get(method string, numChoices int) (VotingMethod, error) {
+	switch method {
+	case "Approval":
+		return &ApprovalVoting{numChoices}, nil
+	case "Plurality":
+		return &PluralityVoting{numChoices}, nil
+	default:
+		return nil, ErrUnknownVotingMethod
+	}
+}
 
 type TallyCount struct {
 	Index int

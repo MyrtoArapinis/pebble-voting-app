@@ -5,8 +5,10 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
+	"strings"
 
 	"blockwatch.cc/tzgo/tezos"
+	"github.com/giry-dev/pebble-voting-app/pebble-core/base32c"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/util"
 )
 
@@ -105,8 +107,8 @@ func (k PublicKey) Verify(msg, sig []byte) error {
 	if len(k) == 0 {
 		return ErrInvalidKeyLength
 	}
-	switch k[0] {
-	case byte(KeyTypeEd25519):
+	switch KeyType(k[0]) {
+	case KeyTypeEd25519:
 		pk := ed25519.PublicKey(k[1:])
 		if len(pk) != ed25519.PublicKeySize {
 			return ErrInvalidKeyLength
@@ -115,7 +117,7 @@ func (k PublicKey) Verify(msg, sig []byte) error {
 			return ErrInvalidSignature
 		}
 		return nil
-	case byte(KeyTypeTezos):
+	case KeyTypeTezos:
 		pk, err := tezos.DecodeKey(k[1:])
 		if err != nil {
 			return err
@@ -134,4 +136,54 @@ func (k PublicKey) Verify(msg, sig []byte) error {
 	default:
 		return ErrUnknownKeyType
 	}
+}
+
+func (k PublicKey) String() (string, error) {
+	if len(k) == 0 {
+		return "", ErrInvalidKeyLength
+	}
+	switch KeyType(k[0]) {
+	case KeyTypeEd25519:
+		p := make([]byte, 2, len(k)+1)
+		p[0] = 238
+		p[1] = 78
+		p = append(p, k[1:]...)
+		return base32c.CheckEncode(p), nil
+	case KeyTypeTezos:
+		pk, err := tezos.DecodeKey(k[1:])
+		if err != nil {
+			return "", err
+		}
+		return pk.String(), nil
+	default:
+		return "", ErrUnknownKeyType
+	}
+}
+
+func Parse(s string) (PublicKey, error) {
+	if strings.HasPrefix(s, "EPK") {
+		p, err := base32c.CheckDecode(s)
+		if err != nil {
+			return nil, err
+		}
+		if len(p) < 3 || p[0] != 238 || p[1] != 78 {
+			return nil, ErrUnknownKeyType
+		}
+		return PublicKey(p[2:]), nil
+	} else if strings.HasPrefix(s, "tz") {
+		var key tezos.Key
+		err := key.UnmarshalText([]byte(s))
+		if err != nil {
+			return nil, err
+		}
+		keyBytes, err := key.MarshalBinary()
+		if err != nil {
+			return nil, err
+		}
+		pk := make(PublicKey, len(keyBytes)+1)
+		pk[0] = byte(KeyTypeTezos)
+		copy(pk[1:], keyBytes)
+		return pk, nil
+	}
+	return nil, ErrUnknownKeyType
 }

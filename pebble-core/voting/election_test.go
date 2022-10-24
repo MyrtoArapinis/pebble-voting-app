@@ -1,6 +1,7 @@
 package voting
 
 import (
+	"context"
 	"math/rand"
 	"testing"
 	"time"
@@ -12,46 +13,6 @@ import (
 	"github.com/giry-dev/pebble-voting-app/pebble-core/voting/methods"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/voting/structs"
 )
-
-type mockBroadcastChannel struct {
-	credentials []structs.CredentialMessage
-	ballots     []structs.SignedBallot
-	decryptions []structs.DecryptionMessage
-	params      *ElectionParams
-}
-
-func (bc *mockBroadcastChannel) PostCredential(cred structs.CredentialMessage) error {
-	if bc.params.Phase() == CredGen {
-		bc.credentials = append(bc.credentials, cred)
-	}
-	return nil
-}
-
-func (bc *mockBroadcastChannel) PostSignedBallot(ballot structs.SignedBallot) error {
-	if bc.params.Phase() == Cast {
-		bc.ballots = append(bc.ballots, ballot)
-	}
-	return nil
-}
-
-func (bc *mockBroadcastChannel) PostBallotDecryption(dec structs.DecryptionMessage) error {
-	if bc.params.Phase() == Tally {
-		bc.decryptions = append(bc.decryptions, dec)
-	}
-	return nil
-}
-
-func (bc *mockBroadcastChannel) GetCredentials() ([]structs.CredentialMessage, error) {
-	return bc.credentials, nil
-}
-
-func (bc *mockBroadcastChannel) GetSignedBallots() ([]structs.SignedBallot, error) {
-	return bc.ballots, nil
-}
-
-func (bc *mockBroadcastChannel) GetBallotDecryptions() ([]structs.DecryptionMessage, error) {
-	return bc.decryptions, nil
-}
 
 type mockSecretsManager struct {
 	privateKey       pubkey.PrivateKey
@@ -128,6 +89,7 @@ func generateElectionParams(ell *structs.EligibilityList) (params ElectionParams
 }
 
 func TestElection(t *testing.T) {
+	ctx := context.Background()
 	credSys := new(anoncred.AnonCred1)
 	err := credSys.SetupCircuit(8)
 	if err != nil {
@@ -142,7 +104,7 @@ func TestElection(t *testing.T) {
 	elligibilityList := generateEligibilityList(privateKeys)
 	electionParams := generateElectionParams(elligibilityList)
 	secretsManager := new(mockSecretsManager)
-	broadcast := new(mockBroadcastChannel)
+	broadcast := new(MockBroadcastChannel)
 	var election Election
 	broadcast.params = &electionParams
 	election.credSys = credSys
@@ -159,7 +121,7 @@ func TestElection(t *testing.T) {
 	for i := range privateKeys {
 		secretsManager.privateKey = privateKeys[i]
 		secretsManager.secretCredential = secretCredentials[i]
-		err = election.PostCredential()
+		err = election.PostCredential(ctx)
 		if err != nil {
 			t.Log(err)
 			t.FailNow()
@@ -170,7 +132,7 @@ func TestElection(t *testing.T) {
 	}
 	voterIdx := rand.Intn(len(privateKeys))
 	secretsManager.secretCredential = secretCredentials[voterIdx]
-	err = election.Vote(rand.Intn(len(electionParams.Choices)))
+	err = election.Vote(ctx, rand.Intn(len(electionParams.Choices)))
 	if err != nil {
 		t.Log(err)
 		t.FailNow()
@@ -178,12 +140,12 @@ func TestElection(t *testing.T) {
 	for time.Now().Before(electionParams.TallyStart) {
 		time.Sleep(time.Second)
 	}
-	err = election.RevealBallotDecryption()
+	err = election.RevealBallotDecryption(ctx)
 	if err != nil {
 		t.Log(err)
 		t.FailNow()
 	}
-	_, err = election.Tally()
+	_, err = election.Progress(ctx)
 	if err != nil {
 		t.Log(err)
 		t.FailNow()

@@ -1,6 +1,7 @@
 package voting
 
 import (
+	"context"
 	"errors"
 
 	"github.com/giry-dev/pebble-voting-app/pebble-core/anoncred"
@@ -14,8 +15,10 @@ import (
 var (
 	ErrWrongPhase = errors.New("pebble: wrong election phase")
 
-	ErrBallotNotDecrypted = errors.New("pebble: ballot not decrypted")
+	ErrDecryptionNotFound = errors.New("pebble: ballot decryption not found")
 )
+
+type ElectionID = [32]byte
 
 type Election struct {
 	credSys anoncred.CredentialSystem
@@ -26,7 +29,52 @@ type Election struct {
 	params  *ElectionParams
 }
 
-func (e *Election) PostCredential() error {
+type ElectionProgress struct {
+	Phase        ElectionPhase
+	Count, Total int
+	Tally        methods.Tally
+}
+
+func NewElection(ctx context.Context, bc BroadcastChannel, sec secrets.SecretsManager) (*Election, error) {
+	params, err := bc.Params(ctx)
+	if err != nil {
+		return nil, err
+	}
+	method, err := methods.Get(params.VotingMethod, len(params.Choices))
+	if err != nil {
+		return nil, err
+	}
+	vdf := &vdf.PietrzakVdf{
+		MaxDifficulty:        params.MaxVdfDifficulty,
+		DifficultyConversion: uint64(float64(params.MaxVdfDifficulty) / params.TallyStart.Sub(params.CastStart).Seconds()),
+	}
+	return &Election{
+		credSys: anoncred.AnonCred1Instance,
+		channel: bc,
+		secrets: sec,
+		vdf:     vdf,
+		method:  method,
+		params:  params,
+	}, nil
+}
+
+func (e *Election) Params() *ElectionParams {
+	return e.params
+}
+
+func (e *Election) Phase() ElectionPhase {
+	return e.params.Phase()
+}
+
+func (e *Election) Id() ElectionID {
+	return e.channel.Id()
+}
+
+func (e *Election) Channel() BroadcastChannel {
+	return e.channel
+}
+
+func (e *Election) PostCredential(ctx context.Context) error {
 	if e.params.Phase() != CredGen {
 		return ErrWrongPhase
 	}
@@ -42,33 +90,36 @@ func (e *Election) PostCredential() error {
 	if err != nil {
 		return err
 	}
-	var msg structs.CredentialMessage
+	msg := new(structs.CredentialMessage)
 	msg.Credential = pub.Bytes()
-	err = msg.Sign(priv, e.params.Id)
+	err = msg.Sign(priv, e.Id())
 	if err != nil {
 		return err
 	}
-	return e.channel.PostCredential(msg)
+	return e.channel.Post(ctx, Message{Credential: msg})
 }
 
-func (e *Election) GetCredentialSet() (anoncred.CredentialSet, error) {
+func (e *Election) GetCredentialSet(ctx context.Context) (anoncred.CredentialSet, error) {
 	if e.params.Phase() <= CredGen {
 		return nil, ErrWrongPhase
 	}
-	msgs, err := e.channel.GetCredentials()
+	msgs, err := e.channel.Get(ctx)
 	if err != nil {
 		return nil, err
 	}
 	creds := make(map[util.HashValue]anoncred.PublicCredential)
 	for _, msg := range msgs {
-		if msg.Verify(e.params.Id) != nil {
+		if msg.Credential == nil {
 			continue
 		}
-		cred, err := e.credSys.ReadPublicCredential(msg.Credential)
+		if msg.Credential.Verify(e.Id()) != nil {
+			continue
+		}
+		cred, err := e.credSys.ReadPublicCredential(msg.Credential.Credential)
 		if err != nil {
 			continue
 		}
-		creds[util.Hash(msg.PublicKey)] = cred
+		creds[util.Hash(msg.Credential.PublicKey)] = cred
 	}
 	var list []anoncred.PublicCredential
 	for _, c := range creds {
@@ -77,11 +128,11 @@ func (e *Election) GetCredentialSet() (anoncred.CredentialSet, error) {
 	return e.credSys.MakeCredentialSet(list)
 }
 
-func (e *Election) Vote(choices ...int) error {
+func (e *Election) Vote(ctx context.Context, choices ...int) error {
 	if e.params.Phase() != Cast {
 		return ErrWrongPhase
 	}
-	set, err := e.GetCredentialSet()
+	set, err := e.GetCredentialSet(ctx)
 	if err != nil {
 		return err
 	}
@@ -110,47 +161,56 @@ func (e *Election) Vote(choices ...int) error {
 	if err != nil {
 		return err
 	}
-	return e.channel.PostSignedBallot(signBallot)
+	return e.channel.Post(ctx, Message{SignedBallot: &signBallot})
 }
 
 func (e *Election) puzzleDuration() uint64 {
 	return uint64(e.params.TallyStart.Sub(e.params.CastStart).Seconds())
 }
 
-func (e *Election) RevealBallotDecryption() error {
+func (e *Election) RevealBallotDecryption(ctx context.Context) error {
 	sol, err := e.secrets.GetVdfSolution()
 	if err != nil {
 		return err
 	}
-	return e.PostBallotDecryption(sol)
+	return e.PostBallotDecryption(ctx, sol)
 }
 
-func (e *Election) PostBallotDecryption(sol vdf.VdfSolution) error {
+func (e *Election) PostBallotDecryption(ctx context.Context, sol vdf.VdfSolution) error {
 	if e.params.Phase() != Tally {
 		return ErrWrongPhase
 	}
 	msg := structs.CreateDecryptionMessage(sol)
-	return e.channel.PostBallotDecryption(msg)
+	return e.channel.Post(ctx, Message{Decryption: &msg})
 }
 
-func (e *Election) Tally() (methods.Tally, error) {
-	if e.params.Phase() != Tally {
-		return nil, ErrWrongPhase
+func (e *Election) Progress(ctx context.Context) (p ElectionProgress, err error) {
+	p.Phase = e.params.Phase()
+	if p.Phase <= CredGen {
+		return
 	}
-	set, err := e.GetCredentialSet()
+	set, err := e.GetCredentialSet(ctx)
 	if err != nil {
-		return nil, err
+		return
 	}
-	signBallots, err := e.channel.GetSignedBallots()
+	msgs, err := e.channel.Get(ctx)
 	if err != nil {
-		return nil, err
+		return
 	}
-	decMsgs, err := e.channel.GetBallotDecryptions()
-	if err != nil {
-		return nil, err
+	var signBallots []structs.SignedBallot
+	var decMsgs []structs.DecryptionMessage
+	for _, msg := range msgs {
+		if msg.SignedBallot != nil {
+			signBallots = append(signBallots, *msg.SignedBallot)
+		} else if msg.Decryption != nil {
+			decMsgs = append(decMsgs, *msg.Decryption)
+		}
 	}
 	var serialNos util.BytesSet
 	var decBallots []structs.Ballot
+	validSignBallots := 0
+	validDecBallots := 0
+	invalidDecBallots := 0
 	for _, signBallot := range signBallots {
 		if serialNos.Contains(signBallot.SerialNo) {
 			continue
@@ -159,13 +219,32 @@ func (e *Election) Tally() (methods.Tally, error) {
 		if err != nil {
 			continue
 		}
-		ballot, err := decryptBallot(signBallot.EncryptedBallot, decMsgs, e.vdf)
-		if err != nil {
-			continue
+		validSignBallots++
+		if p.Phase >= Tally {
+			ballot, err := decryptBallot(signBallot.EncryptedBallot, decMsgs, e.vdf)
+			if err != nil {
+				if err != ErrDecryptionNotFound {
+					invalidDecBallots++
+				}
+				continue
+			}
+			decBallots = append(decBallots, ballot)
+			validDecBallots++
 		}
-		decBallots = append(decBallots, ballot)
 	}
-	return e.method.Tally(decBallots), nil
+	if p.Phase == Cast {
+		p.Total = set.Len()
+		p.Count = validSignBallots
+	} else if p.Phase == Tally {
+		p.Total = validSignBallots - invalidDecBallots
+		p.Count = validDecBallots
+		p.Tally = e.method.Tally(decBallots)
+	} else {
+		p.Total = validSignBallots
+		p.Count = validDecBallots
+		p.Tally = e.method.Tally(decBallots)
+	}
+	return p, nil
 }
 
 func decryptBallot(encBallot structs.EncryptedBallot, msgs []structs.DecryptionMessage, ivdf vdf.VDF) (structs.Ballot, error) {
@@ -179,10 +258,10 @@ func decryptBallot(encBallot structs.EncryptedBallot, msgs []structs.DecryptionM
 			}
 			ballot, err := encBallot.Decrypt(sol)
 			if err != nil {
-				continue
+				return nil, err
 			}
 			return ballot, nil
 		}
 	}
-	return nil, ErrBallotNotDecrypted
+	return nil, ErrDecryptionNotFound
 }

@@ -3,14 +3,15 @@ package structs
 import (
 	"errors"
 
-	"github.com/giry-dev/pebble-voting-app/pebble-core/common"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/util"
 )
 
-const structName = "EligibilityList"
-const magic = 0x454c4c01
+const ellMagic = 0x454c4c01
 
-var ErrDuplicateKey = errors.New("pebble: duplicate key")
+var (
+	ErrDuplicateKey = errors.New("pebble: duplicate key in EligibilityList")
+	ErrUnknownMagic = errors.New("pebble: unknown EligibilityList magic")
+)
 
 type EligibilityList struct {
 	publicKeyHashes []util.HashValue
@@ -44,7 +45,7 @@ func (list *EligibilityList) Contains(pkh util.HashValue) bool {
 
 func (list *EligibilityList) Bytes() []byte {
 	var w util.BufferWriter
-	w.WriteUint32(magic)
+	w.WriteUint32(ellMagic)
 	for _, pkh := range list.publicKeyHashes {
 		w.Write(pkh[:])
 		c, _ := list.IdCommitment(pkh)
@@ -59,8 +60,8 @@ func (list *EligibilityList) FromBytes(p []byte) error {
 	if err != nil {
 		return err
 	}
-	if m != magic {
-		return common.NewParsingError(structName, "unknown magic")
+	if m != ellMagic {
+		return ErrUnknownMagic
 	}
 	list.publicKeyHashes = nil
 	list.idCommitments = nil

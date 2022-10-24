@@ -9,10 +9,12 @@ func TestSetupCircuit(t *testing.T) {
 	err := params.SetupCircuit(depth)
 	if err != nil {
 		t.Errorf("Error creating params: %s", err.Error())
+		return
 	}
 	bytes, err := params.ToBytes()
 	if err != nil {
 		t.Errorf("Error serializing circuit: %s", err.Error())
+		return
 	}
 	err = params.FromBytes(bytes)
 	if err != nil {

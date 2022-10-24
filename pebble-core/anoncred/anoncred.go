@@ -11,6 +11,7 @@ type PublicCredential interface {
 }
 
 type CredentialSet interface {
+	Len() int
 	Sign(secret SecretCredential, msg []byte) ([]byte, error)
 	Verify(serialNo, sig, msg []byte) error
 }

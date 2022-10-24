@@ -20,6 +20,11 @@ type EncryptedBallot struct {
 	VdfInput, Payload []byte
 }
 
+var (
+	ErrMismatchedVdfSolution = errors.New("pebble: mismatched VDF solution")
+	ErrPayloadTooShort       = errors.New("pebble: ballot payload too short")
+)
+
 func (b *EncryptedBallot) Bytes() []byte {
 	var w util.BufferWriter
 	w.WriteVector(b.VdfInput)
@@ -93,11 +98,14 @@ func (b Ballot) Encrypt(sol vdf.VdfSolution) (eb EncryptedBallot, err error) {
 
 func (eb *EncryptedBallot) Decrypt(sol vdf.VdfSolution) (Ballot, error) {
 	if !bytes.Equal(sol.Input, eb.VdfInput) {
-		return nil, errors.New("mismatched VDF solution")
+		return nil, ErrMismatchedVdfSolution
 	}
 	cipher, err := createCipher(sol.Input)
 	if err != nil {
 		return nil, err
+	}
+	if len(eb.Payload) < 12 {
+		return nil, ErrPayloadTooShort
 	}
 	return cipher.Open(nil, eb.Payload[:12], eb.Payload[12:], nil)
 }

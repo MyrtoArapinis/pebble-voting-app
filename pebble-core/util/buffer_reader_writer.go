@@ -1,14 +1,15 @@
 package util
 
 import (
+	"errors"
 	"io"
-
-	"github.com/giry-dev/pebble-voting-app/pebble-core/common"
 )
 
 type BufferReader struct {
 	buf []byte
 }
+
+var errNonCanonicalVector = errors.New("pebble: non canonical length encoding")
 
 func NewBufferReader(buf []byte) *BufferReader {
 	return &BufferReader{buf}
@@ -63,7 +64,7 @@ func (r *BufferReader) ReadVector() (p []byte, err error) {
 		}
 		l = ((l & 127) << 8) + int(b)
 		if l <= 127 {
-			return nil, common.NewParsingError("vector", "non canonical length encoding")
+			return nil, errNonCanonicalVector
 		}
 	}
 	if l == 0 {
