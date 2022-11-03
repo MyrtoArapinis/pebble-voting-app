@@ -13,20 +13,14 @@ import (
 	"golang.org/x/term"
 )
 
-var (
-	flagPassHash string
-)
-
-func init() {
-	flag.StringVar(&flagPassHash, "passhash", "", "server password hash (sha256)")
-}
+var flagPassHash = flag.String("passhash", "", "server password hash (sha256)")
 
 func main() {
 	var passHash []byte
 	var err error
 	flag.Parse()
-	if flagPassHash != "" {
-		passHash, err = hex.DecodeString(flagPassHash)
+	if *flagPassHash != "" {
+		passHash, err = hex.DecodeString(*flagPassHash)
 		if err != nil {
 			fmt.Println("Error decoding password hash: ", err)
 			return
