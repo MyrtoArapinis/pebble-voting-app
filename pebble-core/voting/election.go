@@ -36,6 +36,9 @@ type ElectionProgress struct {
 }
 
 func NewElection(ctx context.Context, bc BroadcastChannel, sec secrets.SecretsManager) (*Election, error) {
+	if anoncred.AnonCred1Instance == nil {
+		return nil, errors.New("pebble: anoncred.AnonCred1Instance is nil")
+	}
 	params, err := bc.Params(ctx)
 	if err != nil {
 		return nil, err

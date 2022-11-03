@@ -1,0 +1,4 @@
+*.bin
+!/anoncred1-params.bin
+
+/cmd/server/server

@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -44,6 +46,7 @@ type ElectionService interface {
 
 type Server struct {
 	srv          ElectionService
+	passHash     []byte
 	create, post bool
 }
 
@@ -71,19 +74,18 @@ func decodeJson(r io.Reader, v interface{}) error {
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	const (
-		GET  = "GET"
-		POST = "POST"
-	)
 	ctx := context.Background()
 	path := req.URL.Path
 	if path == "/create" {
-		if req.Method != POST {
-			respondText(w, 405, "Method not allowed")
+		if req.Method != http.MethodPost {
+			respondText(w, http.StatusMethodNotAllowed, "Method not allowed")
 			return
 		}
 		if !s.create {
-			respondText(w, 403, "Server does not create elections")
+			respondText(w, http.StatusForbidden, "Server does not create elections")
+			return
+		}
+		if !s.authorized(w, req) {
 			return
 		}
 		var params ElectionSetupParams
@@ -100,8 +102,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		respondText(w, 200, "Election creation enqueued")
 		return
 	} else if adminId, ok := util.GetSuffix(path, "/setup/"); ok {
-		if req.Method != GET {
+		if req.Method != http.MethodGet {
 			respondText(w, 405, "Method not allowed")
+			return
+		}
+		if !s.create {
+			respondText(w, http.StatusForbidden, "Server does not create elections")
+			return
+		}
+		if !s.authorized(w, req) {
 			return
 		}
 		info := s.srv.Setup(adminId)
@@ -127,7 +136,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		respondJson(w, resp)
 	} else if backendId, ok := util.GetSuffix(path, "/election/"); ok {
-		if req.Method != GET {
+		if req.Method != http.MethodGet {
 			respondText(w, 405, "Method not allowed")
 			return
 		}
@@ -184,7 +193,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			respondJson(w, resp)
 		}
 	} else if backendId, ok := util.GetSuffix(path, "/params/"); ok {
-		if req.Method != GET {
+		if req.Method != http.MethodGet {
 			respondText(w, 405, "Method not allowed")
 			return
 		}
@@ -203,7 +212,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			respondText(w, 500, err.Error())
 			return
 		}
-		if req.Method == GET {
+		if req.Method == http.MethodGet {
 			msgs, err := election.Channel().Get(ctx)
 			if err != nil {
 				respondText(w, 500, err.Error())
@@ -223,7 +232,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				}
 				w.Write(p)
 			}
-		} else if req.Method == POST {
+		} else if req.Method == http.MethodPost {
 			if !s.post {
 				respondText(w, 403, "Server does not post messages")
 				return
@@ -250,4 +259,19 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		respondText(w, 404, "Endpoint not found")
 	}
+}
+
+func (s *Server) authorized(w http.ResponseWriter, req *http.Request) bool {
+	if len(s.passHash) == 0 {
+		return true
+	}
+	if _, pass, ok := req.BasicAuth(); ok {
+		passHash := sha256.Sum256([]byte(pass))
+		if subtle.ConstantTimeCompare(passHash[:], s.passHash) == 1 {
+			return true
+		}
+	}
+	w.Header().Set("WWW-Authenticate", `Basic realm="restricted", charset="UTF-8"`)
+	respondText(w, http.StatusUnauthorized, "Unauthorized")
+	return false
 }

@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 
 	"github.com/giry-dev/pebble-voting-app/pebble-core/base32c"
@@ -9,22 +10,37 @@ import (
 	"github.com/giry-dev/pebble-voting-app/pebble-core/voting"
 )
 
-var errNotFound = errors.New("pebble: election not found")
+var (
+	errNotFound = errors.New("pebble: election not found")
+	errExists   = errors.New("pebble: election id already exists")
+)
 
-type MockService struct {
+type mockService struct {
 	elections map[string]*voting.Election
 	ids       map[string]string
 	url       string
 }
 
-func NewMockService() *MockService {
-	s := new(MockService)
-	s.elections = make(map[string]*voting.Election)
-	s.ids = make(map[string]string)
-	return s
+func NewMockServer(url string, passHash []byte) *Server {
+	if len(passHash) != 0 && len(passHash) != sha256.Size {
+		panic("server: invalid password hash length")
+	}
+	return &Server{
+		srv: &mockService{
+			elections: make(map[string]*voting.Election),
+			ids:       make(map[string]string),
+			url:       url,
+		},
+		passHash: passHash,
+		create:   true,
+		post:     true,
+	}
 }
 
-func (s *MockService) Create(spar ElectionSetupParams) error {
+func (s *mockService) Create(spar ElectionSetupParams) error {
+	if _, exists := s.ids[spar.AdminId]; exists {
+		return errExists
+	}
 	epar, err := spar.Params()
 	if err != nil {
 		return err
@@ -44,7 +60,7 @@ func (s *MockService) Create(spar ElectionSetupParams) error {
 	return nil
 }
 
-func (s *MockService) Setup(adminId string) (info SetupInfo) {
+func (s *mockService) Setup(adminId string) (info SetupInfo) {
 	backendId, ok := s.ids[adminId]
 	if !ok {
 		info.Status = SetupError
@@ -66,7 +82,7 @@ func (s *MockService) Setup(adminId string) (info SetupInfo) {
 	return
 }
 
-func (s *MockService) Election(id string) (*voting.Election, error) {
+func (s *mockService) Election(id string) (*voting.Election, error) {
 	if el, ok := s.elections[id]; ok {
 		return el, nil
 	}

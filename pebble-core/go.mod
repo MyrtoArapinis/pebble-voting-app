@@ -8,4 +8,5 @@ require (
 	github.com/consensys/gnark-crypto v0.5.3
 	github.com/decred/dcrd/dcrec/secp256k1 v1.0.3 // indirect
 	github.com/fatih/color v1.13.0 // indirect
+	golang.org/x/term v0.1.0 // indirect
 )

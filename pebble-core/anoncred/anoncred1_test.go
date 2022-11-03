@@ -1,6 +1,9 @@
 package anoncred
 
-import "testing"
+import (
+	"os"
+	"testing"
+)
 
 const depth = 8
 
@@ -19,6 +22,17 @@ func TestSetupCircuit(t *testing.T) {
 	err = params.FromBytes(bytes)
 	if err != nil {
 		t.Errorf("Error deserializing circuit: %s", err.Error())
+		return
+	}
+	file, err := os.OpenFile("anoncred1-params.bin", os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		t.Log("Failed opening anoncred1-params.bin for writing")
+		return
+	}
+	defer file.Close()
+	_, err = file.Write(bytes)
+	if err != nil {
+		t.Log(err.Error())
 	}
 }
 
