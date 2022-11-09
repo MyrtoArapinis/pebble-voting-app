@@ -8,10 +8,10 @@ import (
 )
 
 type SecretsManager interface {
-	GetPrivateKey() (pubkey.PrivateKey, error)
-	GetSecretCredential(sys anoncred.CredentialSystem) (anoncred.SecretCredential, error)
-	GetBallot() (structs.SignedBallot, error)
-	SetBallot(ballot structs.SignedBallot) error
-	GetVdfSolution() (vdf.VdfSolution, error)
-	SetVdfSolution(sol vdf.VdfSolution) error
+	GetPrivateKey(ell *structs.EligibilityList) (pubkey.PrivateKey, error)
+	GetAnonymitySecret(eid [32]byte, sys anoncred.CredentialSystem) (anoncred.Secret, error)
+	GetBallot(eid [32]byte) (structs.SignedBallot, error)
+	SetBallot(eid [32]byte, ballot structs.SignedBallot) error
+	GetVdfSolution(eid [32]byte) (vdf.VdfSolution, error)
+	SetVdfSolution(eid [32]byte, sol vdf.VdfSolution) error
 }

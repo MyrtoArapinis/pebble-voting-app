@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width" />
+  <title>Pebble Vote</title>
+  <link rel="stylesheet" type="text/css" href="style.css" />
+  <script src="script.js"></script>
+</head>
+<body>
+<div><h1>Pebble</h1></div>
+<div id="content">
+  <div id="main">
+    <div>
+      Eligibility Public Key:
+      <span id="pubkey"></span>
+    </div>
+    <div>
+      <input type="text" id="text-join" />
+      <button onclick="joinElection()">Join</button>
+    </div>
+    <div id="election-list"></div>
+  </div>
+  <div id="election" style="display: none;">
+    <button>All elections</button>
+    <h2 id="election-title">Election</h2>
+    <p id="election-description"></p>
+    <div id="election-progress">
+      <div id="prog-cast">
+        <div>Cast start</div>
+        <span></span>
+      </div>
+      <div id="prog-tally">
+        <div>Tally start</div>
+        <span></span>
+      </div>
+      <div id="prog-end">
+        <div>Tally end</div>
+      </div>
+    </div>
+  </div>
+  <div id="vote" style="display: none;">
+    <h3>Vote</h3>
+    <form style="margin: 1em 0;"></form>
+    <button>Vote</button>
+  </div>
+  <div id="reveal">
+    <button>Reveal ballot decryption</button>
+  </div>
+  <div id="results">
+    
+  </div>
+</div>
+<div id="dialog" style="display: none;">
+  <div id="dialog-content">
+    <div></div>
+    <button id="close-dialog" onclick="closeDialog()">Close</button>
+  </div>
+</div>
+</body>
+</html>

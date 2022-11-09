@@ -2,8 +2,8 @@ package anoncred
 
 import (
 	"bytes"
-	"crypto/rand"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"hash"
 	"sort"
@@ -18,6 +18,11 @@ import (
 )
 
 const curveID = ecc.BLS12_381
+
+var (
+	errIncompatibleSecret     = errors.New("anoncred1: secret not compatible with system")
+	errIncompatibleCommitment = errors.New("anoncred1: commitment not compatible with system")
+)
 
 func appendUint32(slice []byte, value uint32) []byte {
 	return append(slice, byte(value), byte(value>>8), byte(value>>16), byte(value>>24))
@@ -253,74 +258,49 @@ func hashMerkleTree(hashes [][]byte, depth int) (root []byte, err error) {
 	return hashes[0], nil
 }
 
-func generateRandomScalar() (res []byte, err error) {
-	res = make([]byte, 32)
-	if _, err = rand.Read(res); err != nil {
-		return nil, err
-	}
-	hFunc := bls381_mimc.NewMiMC("rand")
-	if _, err = hFunc.Write(res); err != nil {
-		return nil, err
-	}
-	res = hFunc.Sum(nil)
-	return
+type anonCred1Secret struct {
+	credential, secret []byte
 }
 
-type anonCred1SecCred struct {
-	serialNo, secret []byte
-}
-
-func (cred *anonCred1SecCred) Bytes() (res []byte) {
-	res = append(res, cred.serialNo...)
-	res = append(res, cred.secret...)
-	return res
-}
-
-func (cred *anonCred1SecCred) Public() (PublicCredential, error) {
+func (s *anonCred1Secret) Commitment() (Commitment, error) {
 	hFunc := bls381_mimc.NewMiMC("anoncred1")
-	digest, err := hashBytes(hFunc, cred.serialNo, cred.secret)
+	digest, err := hashBytes(hFunc, s.credential, s.secret)
 	if err != nil {
 		return nil, err
 	}
-	return &anonCred1PubCred{digest}, nil
+	return &anonCred1Commitment{digest}, nil
 }
 
-func (cred *anonCred1SecCred) SerialNo() []byte {
-	return cred.serialNo
+func (s *anonCred1Secret) Credential() []byte {
+	return s.credential
 }
 
-type anonCred1PubCred struct {
+type anonCred1Commitment struct {
 	bytes []byte
 }
 
-func (cred *anonCred1PubCred) Bytes() []byte {
-	return cred.bytes
+func (c *anonCred1Commitment) Bytes() []byte {
+	return c.bytes
 }
 
-func (*AnonCred1) GenerateSecretCredential() (SecretCredential, error) {
-	serialNo, err := generateRandomScalar()
+func (*AnonCred1) DeriveSecret(seed []byte) (Secret, error) {
+	hFunc := bls381_mimc.NewMiMC("anoncred1.kdf")
+	cred, err := hashBytes(hFunc, []byte{0}, seed)
 	if err != nil {
 		return nil, err
 	}
-	secret, err := generateRandomScalar()
+	secret, err := hashBytes(hFunc, []byte{1}, seed)
 	if err != nil {
 		return nil, err
 	}
-	return &anonCred1SecCred{serialNo, secret}, nil
+	return &anonCred1Secret{cred, secret}, nil
 }
 
-func (*AnonCred1) ReadSecretCredential(p []byte) (SecretCredential, error) {
-	if len(p) != 64 {
-		return nil, fmt.Errorf("secret credential must be 64 bytes")
-	}
-	return &anonCred1SecCred{p[:32], p[32:]}, nil
-}
-
-func (*AnonCred1) ReadPublicCredential(p []byte) (PublicCredential, error) {
+func (*AnonCred1) ParseCommitment(p []byte) (Commitment, error) {
 	if len(p) != 32 {
-		return nil, fmt.Errorf("public credential must be 64 bytes")
+		return nil, errors.New("anoncred1: commitment must be 32 bytes")
 	}
-	return &anonCred1PubCred{p}, nil
+	return &anonCred1Commitment{p}, nil
 }
 
 type anonCred1Set struct {
@@ -350,22 +330,21 @@ func (set *anonCred1Set) Swap(i, j int) {
 	set.creds[j] = t
 }
 
-func (params *AnonCred1) MakeCredentialSet(credentials []PublicCredential) (CredentialSet, error) {
+func (params *AnonCred1) MakeAnonymitySet(commitments []Commitment) (AnonymitySet, error) {
 	set := new(anonCred1Set)
 	set.params = params
-	if len(credentials) == 0 {
+	if len(commitments) == 0 {
 		return set, nil
 	}
-	for _, item := range credentials {
-		switch cred := item.(type) {
-		case *anonCred1PubCred:
-			set.creds = append(set.creds, cred.bytes)
-		default:
-			return nil, fmt.Errorf("credential not compatible with system")
+	for _, item := range commitments {
+		com, ok := item.(*anonCred1Commitment)
+		if !ok {
+			return nil, errIncompatibleCommitment
 		}
+		set.creds = append(set.creds, com.bytes)
 	}
 	sort.Sort(set)
-	creds := make([][]byte, 0, len(credentials))
+	creds := make([][]byte, 0, len(commitments))
 	creds = append(creds, set.creds[0])
 	for i := 1; i < len(set.creds); i++ {
 		if !bytes.Equal(set.creds[i-1], set.creds[i]) {
@@ -381,36 +360,35 @@ func (params *AnonCred1) MakeCredentialSet(credentials []PublicCredential) (Cred
 	return set, nil
 }
 
-func (set *anonCred1Set) Sign(secret SecretCredential, msg []byte) ([]byte, error) {
-	switch sec := secret.(type) {
-	case *anonCred1SecCred:
-		pub, err := sec.Public()
-		pubBytes := pub.Bytes()
-		if err != nil {
-			return nil, err
-		}
-		var proof anonCred1Proof
-		proof.MessageHash = hashMsg(msg)
-		proof.SerialNo = sec.serialNo
-		proof.MerkleRoot = set.root
-		idx := -1
-		for i, b := range set.creds {
-			if bytes.Equal(b, pubBytes) {
-				idx = i
-				break
-			}
-		}
-		if idx < 0 {
-			return nil, fmt.Errorf("credential not in credential set")
-		}
-		err = set.params.prove(&proof, sec.secret, idx, set.creds)
-		if err != nil {
-			return nil, err
-		}
-		return util.Concat(proof.Signature, proof.Proof), nil
-	default:
-		return nil, fmt.Errorf("credential not compatible with system")
+func (set *anonCred1Set) Sign(secret Secret, msg []byte) ([]byte, error) {
+	sec, ok := secret.(*anonCred1Secret)
+	if !ok {
+		return nil, errIncompatibleSecret
 	}
+	pub, err := sec.Commitment()
+	if err != nil {
+		return nil, err
+	}
+	pubBytes := pub.Bytes()
+	var proof anonCred1Proof
+	proof.MessageHash = hashMsg(msg)
+	proof.SerialNo = sec.credential
+	proof.MerkleRoot = set.root
+	idx := -1
+	for i, b := range set.creds {
+		if bytes.Equal(b, pubBytes) {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return nil, fmt.Errorf("credential not in credential set")
+	}
+	err = set.params.prove(&proof, sec.secret, idx, set.creds)
+	if err != nil {
+		return nil, err
+	}
+	return util.Concat(proof.Signature, proof.Proof), nil
 }
 
 func (set *anonCred1Set) Verify(serialNo, sig, msg []byte) error {

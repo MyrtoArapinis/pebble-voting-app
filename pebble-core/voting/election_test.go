@@ -2,6 +2,7 @@ package voting
 
 import (
 	"context"
+	crypto_rand "crypto/rand"
 	"math/rand"
 	"testing"
 	"time"
@@ -15,42 +16,44 @@ import (
 )
 
 type mockSecretsManager struct {
-	privateKey       pubkey.PrivateKey
-	secretCredential anoncred.SecretCredential
-	ballot           structs.SignedBallot
-	solution         vdf.VdfSolution
+	privateKey      pubkey.PrivateKey
+	anonymitySecret anoncred.Secret
+	ballot          structs.SignedBallot
+	solution        vdf.VdfSolution
 }
 
-func (sm *mockSecretsManager) GetPrivateKey() (pubkey.PrivateKey, error) {
+func (sm *mockSecretsManager) GetPrivateKey(_ *structs.EligibilityList) (pubkey.PrivateKey, error) {
 	return sm.privateKey, nil
 }
 
-func (sm *mockSecretsManager) GetSecretCredential(sys anoncred.CredentialSystem) (anoncred.SecretCredential, error) {
-	return sm.secretCredential, nil
+func (sm *mockSecretsManager) GetAnonymitySecret(_ [32]byte, sys anoncred.CredentialSystem) (anoncred.Secret, error) {
+	return sm.anonymitySecret, nil
 }
 
-func (sm *mockSecretsManager) GetBallot() (structs.SignedBallot, error) {
+func (sm *mockSecretsManager) GetBallot(_ [32]byte) (structs.SignedBallot, error) {
 	return sm.ballot, nil
 }
 
-func (sm *mockSecretsManager) SetBallot(ballot structs.SignedBallot) error {
+func (sm *mockSecretsManager) SetBallot(_ [32]byte, ballot structs.SignedBallot) error {
 	sm.ballot = ballot
 	return nil
 }
 
-func (sm *mockSecretsManager) GetVdfSolution() (vdf.VdfSolution, error) {
+func (sm *mockSecretsManager) GetVdfSolution(_ [32]byte) (vdf.VdfSolution, error) {
 	return sm.solution, nil
 }
 
-func (sm *mockSecretsManager) SetVdfSolution(sol vdf.VdfSolution) error {
+func (sm *mockSecretsManager) SetVdfSolution(_ [32]byte, sol vdf.VdfSolution) error {
 	sm.solution = sol
 	return nil
 }
 
-func generateSecretCredentials(credSys anoncred.CredentialSystem, count int) (creds []anoncred.SecretCredential, err error) {
-	creds = make([]anoncred.SecretCredential, count)
+func generateSecretCredentials(credSys anoncred.CredentialSystem, count int) (creds []anoncred.Secret, err error) {
+	creds = make([]anoncred.Secret, count)
 	for i := range creds {
-		creds[i], err = credSys.GenerateSecretCredential()
+		var seed [32]byte
+		crypto_rand.Reader.Read(seed[:])
+		creds[i], err = credSys.DeriveSecret(seed[:])
 		if err != nil {
 			return nil, err
 		}
@@ -120,8 +123,8 @@ func TestElection(t *testing.T) {
 	}
 	for i := range privateKeys {
 		secretsManager.privateKey = privateKeys[i]
-		secretsManager.secretCredential = secretCredentials[i]
-		err = election.PostCredential(ctx)
+		secretsManager.anonymitySecret = secretCredentials[i]
+		err = election.PostCredentialCommitment(ctx)
 		if err != nil {
 			t.Log(err)
 			t.FailNow()
@@ -131,7 +134,7 @@ func TestElection(t *testing.T) {
 		time.Sleep(time.Second)
 	}
 	voterIdx := rand.Intn(len(privateKeys))
-	secretsManager.secretCredential = secretCredentials[voterIdx]
+	secretsManager.anonymitySecret = secretCredentials[voterIdx]
 	err = election.Vote(ctx, rand.Intn(len(electionParams.Choices)))
 	if err != nil {
 		t.Log(err)

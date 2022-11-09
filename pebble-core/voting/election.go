@@ -77,24 +77,24 @@ func (e *Election) Channel() BroadcastChannel {
 	return e.channel
 }
 
-func (e *Election) PostCredential(ctx context.Context) error {
+func (e *Election) PostCredentialCommitment(ctx context.Context) error {
 	if e.params.Phase() != CredGen {
 		return ErrWrongPhase
 	}
-	priv, err := e.secrets.GetPrivateKey()
+	priv, err := e.secrets.GetPrivateKey(e.params.EligibilityList)
 	if err != nil {
 		return err
 	}
-	sec, err := e.secrets.GetSecretCredential(e.credSys)
+	sec, err := e.secrets.GetAnonymitySecret(e.Id(), e.credSys)
 	if err != nil {
 		return err
 	}
-	pub, err := sec.Public()
+	com, err := sec.Commitment()
 	if err != nil {
 		return err
 	}
 	msg := new(structs.CredentialMessage)
-	msg.Credential = pub.Bytes()
+	msg.Commitment = com.Bytes()
 	err = msg.Sign(priv, e.Id())
 	if err != nil {
 		return err
@@ -102,7 +102,7 @@ func (e *Election) PostCredential(ctx context.Context) error {
 	return e.channel.Post(ctx, Message{Credential: msg})
 }
 
-func (e *Election) GetCredentialSet(ctx context.Context) (anoncred.CredentialSet, error) {
+func (e *Election) GetAnonymitySet(ctx context.Context) (anoncred.AnonymitySet, error) {
 	if e.params.Phase() <= CredGen {
 		return nil, ErrWrongPhase
 	}
@@ -110,7 +110,7 @@ func (e *Election) GetCredentialSet(ctx context.Context) (anoncred.CredentialSet
 	if err != nil {
 		return nil, err
 	}
-	creds := make(map[util.HashValue]anoncred.PublicCredential)
+	creds := make(map[util.HashValue]anoncred.Commitment)
 	for _, msg := range msgs {
 		if msg.Credential == nil {
 			continue
@@ -118,24 +118,24 @@ func (e *Election) GetCredentialSet(ctx context.Context) (anoncred.CredentialSet
 		if msg.Credential.Verify(e.Id()) != nil {
 			continue
 		}
-		cred, err := e.credSys.ReadPublicCredential(msg.Credential.Credential)
+		cred, err := e.credSys.ParseCommitment(msg.Credential.Commitment)
 		if err != nil {
 			continue
 		}
 		creds[util.Hash(msg.Credential.PublicKey)] = cred
 	}
-	var list []anoncred.PublicCredential
+	var list []anoncred.Commitment
 	for _, c := range creds {
 		list = append(list, c)
 	}
-	return e.credSys.MakeCredentialSet(list)
+	return e.credSys.MakeAnonymitySet(list)
 }
 
 func (e *Election) Vote(ctx context.Context, choices ...int) error {
 	if e.params.Phase() != Cast {
 		return ErrWrongPhase
 	}
-	set, err := e.GetCredentialSet(ctx)
+	set, err := e.GetAnonymitySet(ctx)
 	if err != nil {
 		return err
 	}
@@ -143,11 +143,11 @@ func (e *Election) Vote(ctx context.Context, choices ...int) error {
 	if err != nil {
 		return err
 	}
-	err = e.secrets.SetVdfSolution(sol)
+	err = e.secrets.SetVdfSolution(e.Id(), sol)
 	if err != nil {
 		return err
 	}
-	sec, err := e.secrets.GetSecretCredential(e.credSys)
+	sec, err := e.secrets.GetAnonymitySecret(e.Id(), e.credSys)
 	if err != nil {
 		return err
 	}
@@ -160,7 +160,7 @@ func (e *Election) Vote(ctx context.Context, choices ...int) error {
 	if err != nil {
 		return err
 	}
-	err = e.secrets.SetBallot(signBallot)
+	err = e.secrets.SetBallot(e.Id(), signBallot)
 	if err != nil {
 		return err
 	}
@@ -172,7 +172,7 @@ func (e *Election) puzzleDuration() uint64 {
 }
 
 func (e *Election) RevealBallotDecryption(ctx context.Context) error {
-	sol, err := e.secrets.GetVdfSolution()
+	sol, err := e.secrets.GetVdfSolution(e.Id())
 	if err != nil {
 		return err
 	}
@@ -192,7 +192,7 @@ func (e *Election) Progress(ctx context.Context) (p ElectionProgress, err error)
 	if p.Phase <= CredGen {
 		return
 	}
-	set, err := e.GetCredentialSet(ctx)
+	set, err := e.GetAnonymitySet(ctx)
 	if err != nil {
 		return
 	}
@@ -209,13 +209,13 @@ func (e *Election) Progress(ctx context.Context) (p ElectionProgress, err error)
 			decMsgs = append(decMsgs, *msg.Decryption)
 		}
 	}
-	var serialNos util.BytesSet
+	var usedCredentials util.BytesSet
 	var decBallots []structs.Ballot
 	validSignBallots := 0
 	validDecBallots := 0
 	invalidDecBallots := 0
 	for _, signBallot := range signBallots {
-		if serialNos.Contains(signBallot.SerialNo) {
+		if usedCredentials.Contains(signBallot.Credential) {
 			continue
 		}
 		err = signBallot.Verify(set)

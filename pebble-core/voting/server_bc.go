@@ -2,9 +2,13 @@ package voting
 
 import (
 	"bytes"
+	"context"
+	"errors"
 	"io"
 	"net/http"
+	"strings"
 
+	"github.com/giry-dev/pebble-voting-app/pebble-core/base32c"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/util"
 	"github.com/giry-dev/pebble-voting-app/pebble-core/voting/structs"
 )
@@ -12,9 +16,33 @@ import (
 type BroadcastClient struct {
 	client                 http.Client
 	paramsURI, messagesURI string
+	eid                    ElectionID
 }
 
-func (bc *BroadcastClient) Params() (*ElectionParams, error) {
+func NewBroadcastClient(id, uri string) (*BroadcastClient, error) {
+	if !strings.HasSuffix(uri, "/") {
+		uri += "/"
+	}
+	eid, err := base32c.Decode(id)
+	if err != nil {
+		return nil, err
+	}
+	if len(eid) != 32 {
+		return nil, errors.New("pebble: election id not 32 bytes long")
+	}
+	bc := &BroadcastClient{
+		paramsURI:   uri + "params/" + id,
+		messagesURI: uri + "message/" + id,
+	}
+	copy(bc.eid[:], eid)
+	return bc, nil
+}
+
+func (bc *BroadcastClient) Id() ElectionID {
+	return bc.eid
+}
+
+func (bc *BroadcastClient) Params(_ context.Context) (*ElectionParams, error) {
 	resp, err := bc.client.Get(bc.paramsURI)
 	if err != nil {
 		return nil, err
@@ -32,7 +60,7 @@ func (bc *BroadcastClient) Params() (*ElectionParams, error) {
 	return p, nil
 }
 
-func (bc *BroadcastClient) Get() ([]Message, error) {
+func (bc *BroadcastClient) Get(_ context.Context) ([]Message, error) {
 	resp, err := bc.client.Get(bc.messagesURI)
 	if err != nil {
 		return nil, err
@@ -77,7 +105,7 @@ func (bc *BroadcastClient) Get() ([]Message, error) {
 	return msgs, nil
 }
 
-func (bc *BroadcastClient) Post(m Message) error {
+func (bc *BroadcastClient) Post(_ context.Context, m Message) error {
 	resp, err := bc.client.Post(bc.messagesURI, "application/octet-stream", bytes.NewReader(m.Bytes()))
 	if err != nil {
 		return err

@@ -45,13 +45,13 @@ func (b *EncryptedBallot) FromBytes(p []byte) error {
 
 type SignedBallot struct {
 	EncryptedBallot EncryptedBallot
-	SerialNo        []byte
+	Credential      []byte
 	Signature       []byte
 }
 
 func (b *SignedBallot) Bytes() []byte {
 	var w util.BufferWriter
-	w.WriteVector(b.SerialNo)
+	w.WriteVector(b.Credential)
 	w.WriteVector(b.Signature)
 	w.Write(b.EncryptedBallot.Bytes())
 	return w.Buffer
@@ -60,7 +60,7 @@ func (b *SignedBallot) Bytes() []byte {
 func (b *SignedBallot) FromBytes(p []byte) error {
 	r := util.NewBufferReader(p)
 	var err error
-	b.SerialNo, err = r.ReadVector()
+	b.Credential, err = r.ReadVector()
 	if err != nil {
 		return err
 	}
@@ -110,13 +110,13 @@ func (eb *EncryptedBallot) Decrypt(sol vdf.VdfSolution) (Ballot, error) {
 	return cipher.Open(nil, eb.Payload[:12], eb.Payload[12:], nil)
 }
 
-func (eb *EncryptedBallot) Sign(set anoncred.CredentialSet, cred anoncred.SecretCredential) (sb SignedBallot, err error) {
+func (eb *EncryptedBallot) Sign(set anoncred.AnonymitySet, secret anoncred.Secret) (sb SignedBallot, err error) {
 	sb.EncryptedBallot = *eb
-	sb.SerialNo = cred.SerialNo()
-	sb.Signature, err = set.Sign(cred, eb.Bytes())
+	sb.Credential = secret.Credential()
+	sb.Signature, err = set.Sign(secret, eb.Bytes())
 	return
 }
 
-func (b *SignedBallot) Verify(set anoncred.CredentialSet) error {
-	return set.Verify(b.SerialNo, b.Signature, b.Bytes())
+func (b *SignedBallot) Verify(set anoncred.AnonymitySet) error {
+	return set.Verify(b.Credential, b.Signature, b.Bytes())
 }

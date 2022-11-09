@@ -48,7 +48,7 @@ func (sp *ElectionSetupParams) Params() (*voting.ElectionParams, error) {
 		EligibilityList: structs.NewEligibilityList(),
 	}
 	for _, voter := range sp.Voters {
-		pk, err := pubkey.Parse(voter.Key)
+		pk, err := pubkey.ParsePublicKey(voter.Key)
 		if err != nil {
 			continue
 		}

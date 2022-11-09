@@ -1,6 +1,7 @@
 package anoncred
 
 import (
+	"crypto/rand"
 	"os"
 	"testing"
 )
@@ -45,31 +46,33 @@ func TestProveVerify(t *testing.T) {
 		t.Error("Error creating params")
 	}
 	msg := make([]byte, 5)
-	var secret SecretCredential
-	var credentials []PublicCredential
+	var secret Secret
+	var commitments []Commitment
 	for i := 0; i < credNum; i++ {
-		sec, err := params.GenerateSecretCredential()
+		var seed [32]byte
+		rand.Reader.Read(seed[:])
+		sec, err := params.DeriveSecret(seed[:])
 		if err != nil {
 			t.Error("Error generating credential")
 		}
-		pub, err := sec.Public()
+		com, err := sec.Commitment()
 		if err != nil {
 			t.Error("Error generating credential")
 		}
-		credentials = append(credentials, pub)
+		commitments = append(commitments, com)
 		if i == credPos {
 			secret = sec
 		}
 	}
-	set, err := params.MakeCredentialSet(credentials)
+	set, err := params.MakeAnonymitySet(commitments)
 	if err != nil {
-		t.Error("Error making credential set")
+		t.Error("Error making anonymity set")
 	}
 	sig, err := set.Sign(secret, msg)
 	if err != nil {
 		t.Errorf("Error signing: %s", err.Error())
 	}
-	err = set.Verify(secret.SerialNo(), sig, msg)
+	err = set.Verify(secret.Credential(), sig, msg)
 	if err != nil {
 		t.Errorf("Error verifying proof: %s", err.Error())
 	}

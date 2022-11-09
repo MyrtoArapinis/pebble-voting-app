@@ -6,14 +6,14 @@ import (
 )
 
 type CredentialMessage struct {
-	Credential []byte
+	Commitment []byte
 	PublicKey  pubkey.PublicKey
 	Signature  []byte
 }
 
 func (c *CredentialMessage) Bytes() []byte {
 	var w util.BufferWriter
-	w.WriteVector(c.Credential)
+	w.WriteVector(c.Commitment)
 	w.WriteVector(c.PublicKey)
 	w.Write(c.Signature)
 	return w.Buffer
@@ -22,7 +22,7 @@ func (c *CredentialMessage) Bytes() []byte {
 func (c *CredentialMessage) FromBytes(p []byte) error {
 	r := util.NewBufferReader(p)
 	var err error
-	c.Credential, err = r.ReadVector()
+	c.Commitment, err = r.ReadVector()
 	if err != nil {
 		return err
 	}
@@ -37,10 +37,10 @@ func (c *CredentialMessage) FromBytes(p []byte) error {
 func (c *CredentialMessage) Sign(k pubkey.PrivateKey, eid util.HashValue) error {
 	var err error
 	c.PublicKey = k.Public()
-	c.Signature, err = k.Sign(util.Concat(eid[:], c.Credential))
+	c.Signature, err = k.Sign(util.Concat(eid[:], c.Commitment))
 	return err
 }
 
 func (c *CredentialMessage) Verify(eid util.HashValue) error {
-	return c.PublicKey.Verify(util.Concat(eid[:], c.Credential), c.Signature)
+	return c.PublicKey.Verify(util.Concat(eid[:], c.Commitment), c.Signature)
 }

@@ -1,24 +1,22 @@
 package anoncred
 
-type SecretCredential interface {
-	Bytes() []byte
-	Public() (PublicCredential, error)
-	SerialNo() []byte
+type Secret interface {
+	Commitment() (Commitment, error)
+	Credential() []byte
 }
 
-type PublicCredential interface {
+type Commitment interface {
 	Bytes() []byte
 }
 
-type CredentialSet interface {
+type AnonymitySet interface {
 	Len() int
-	Sign(secret SecretCredential, msg []byte) ([]byte, error)
-	Verify(serialNo, sig, msg []byte) error
+	Sign(secret Secret, msg []byte) ([]byte, error)
+	Verify(cred, sig, msg []byte) error
 }
 
 type CredentialSystem interface {
-	GenerateSecretCredential() (SecretCredential, error)
-	ReadSecretCredential(p []byte) (SecretCredential, error)
-	ReadPublicCredential(p []byte) (PublicCredential, error)
-	MakeCredentialSet(credentials []PublicCredential) (CredentialSet, error)
+	DeriveSecret(seed []byte) (Secret, error)
+	ParseCommitment(p []byte) (Commitment, error)
+	MakeAnonymitySet(commitments []Commitment) (AnonymitySet, error)
 }

@@ -1,7 +1,6 @@
 package pubkey
 
 import (
-	"crypto"
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
@@ -35,8 +34,6 @@ var (
 	ErrInvalidSignature = errors.New("pebble: invalid signature")
 )
 
-var noHashSignerOpts crypto.SignerOpts = crypto.Hash(0)
-
 func newPublicKey(t KeyType, k []byte) PublicKey {
 	p := make(PublicKey, len(k)+1)
 	p[0] = byte(t)
@@ -63,30 +60,40 @@ func (k PrivateKey) Secret() []byte {
 	return k.s
 }
 
-func GenerateKey(keyType KeyType) (k PrivateKey, err error) {
+func NewKeyFromSeed(seed []byte) PrivateKey {
+	priv := ed25519.NewKeyFromSeed(seed)
+	return PrivateKey{
+		p: newPublicKey(KeyTypeEd25519, priv[32:]),
+		s: priv[:32],
+	}
+}
+
+func GenerateKey(keyType KeyType) (PrivateKey, error) {
 	switch keyType {
 	case KeyTypeEd25519:
 		pub, priv, err := ed25519.GenerateKey(rand.Reader)
 		if err != nil {
-			return k, err
+			return PrivateKey{}, err
 		}
 		return PrivateKey{newPublicKey(keyType, pub), priv.Seed()}, nil
 	case KeyTypeTezos:
 		priv, err := tezos.GenerateKey(tezos.KeyTypeEd25519)
 		if err != nil {
-			return k, err
+			return PrivateKey{}, err
 		}
-		pub := priv.Public()
-		return PrivateKey{newPublicKey(keyType, pub.Bytes()), []byte(priv.String())}, nil
+		return PrivateKey{
+			p: newPublicKey(keyType, priv.Public().Address().Bytes()),
+			s: []byte(priv.String()),
+		}, nil
 	default:
-		return k, ErrUnknownKeyType
+		return PrivateKey{}, ErrUnknownKeyType
 	}
 }
 
 func (k PrivateKey) Sign(msg []byte) ([]byte, error) {
 	switch k.Type() {
 	case KeyTypeEd25519:
-		return ed25519.NewKeyFromSeed(k.s).Sign(rand.Reader, msg, noHashSignerOpts)
+		return ed25519.Sign(ed25519.NewKeyFromSeed(k.s), msg), nil
 	case KeyTypeTezos:
 		key, err := tezos.ParsePrivateKey(string(k.s))
 		if err != nil {
@@ -97,7 +104,12 @@ func (k PrivateKey) Sign(msg []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		return sig.Bytes(), nil
+		pub := key.Public().Bytes()
+		res := make([]byte, 1, 120)
+		res[0] = byte(len(pub))
+		res = append(res, pub...)
+		res = append(res, sig.Bytes()...)
+		return res, nil
 	default:
 		return nil, ErrUnknownKeyType
 	}
@@ -118,12 +130,24 @@ func (k PublicKey) Verify(msg, sig []byte) error {
 		}
 		return nil
 	case KeyTypeTezos:
-		pk, err := tezos.DecodeKey(k[1:])
+		var addr tezos.Address
+		err := addr.UnmarshalBinary(k[1:])
 		if err != nil {
 			return err
 		}
+		if len(sig) == 0 {
+			return ErrInvalidSignature
+		}
+		pubLen := int(sig[1])
+		if len(sig) <= pubLen {
+			return ErrInvalidSignature
+		}
+		pk, err := tezos.DecodeKey(sig[1 : pubLen+1])
+		if err != nil {
+			return ErrInvalidSignature
+		}
 		var tzsig tezos.Signature
-		err = tzsig.UnmarshalBinary(sig)
+		err = tzsig.UnmarshalBinary(sig[pubLen+1:])
 		if err != nil {
 			return ErrInvalidSignature
 		}
@@ -160,7 +184,7 @@ func (k PublicKey) String() (string, error) {
 	}
 }
 
-func Parse(s string) (PublicKey, error) {
+func ParsePublicKey(s string) (PublicKey, error) {
 	if strings.HasPrefix(s, "EPK") {
 		p, err := base32c.CheckDecode(s)
 		if err != nil {
@@ -171,19 +195,11 @@ func Parse(s string) (PublicKey, error) {
 		}
 		return PublicKey(p[2:]), nil
 	} else if strings.HasPrefix(s, "tz") {
-		var key tezos.Key
-		err := key.UnmarshalText([]byte(s))
+		addr, err := tezos.ParseAddress(s)
 		if err != nil {
 			return nil, err
 		}
-		keyBytes, err := key.MarshalBinary()
-		if err != nil {
-			return nil, err
-		}
-		pk := make(PublicKey, len(keyBytes)+1)
-		pk[0] = byte(KeyTypeTezos)
-		copy(pk[1:], keyBytes)
-		return pk, nil
+		return newPublicKey(KeyTypeTezos, addr.Bytes()), nil
 	}
 	return nil, ErrUnknownKeyType
 }
